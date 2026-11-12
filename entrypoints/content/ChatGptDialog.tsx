@@ -95,8 +95,9 @@ const ChatGptDialog = (props: {
         setMode('writingPrompt')
         setError(
           response.error === 'NO_API_KEY'
-            ? 'Add your OpenAI API key in the extension’s Cover letter settings to generate cover letters.'
-            : 'Cover letter generation failed. Please try again.'
+            ? 'Add your Google Gemini or OpenAI API key in Cover Letter settings to generate cover letters.'
+            : response.message ||
+                'Cover letter generation failed. Please check your API key and try again.'
         )
         finish()
       }
@@ -160,7 +161,27 @@ const ChatGptDialog = (props: {
         </Typography>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            action={
+              error.includes('Cover Letter settings') ? (
+                <Button
+                  color="inherit"
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    window.open(
+                      browser.runtime.getURL('/options.html#/cover-letter'),
+                      '_blank'
+                    )
+                  }}
+                >
+                  Open Settings
+                </Button>
+              ) : undefined
+            }
+          >
             {error}
           </Alert>
         )}

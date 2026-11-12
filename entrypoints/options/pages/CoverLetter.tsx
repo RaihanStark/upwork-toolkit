@@ -1,8 +1,14 @@
 import PromptForm from '@/components/PromptForm'
 import useMediaQuery from '@/hooks/useMediaQuery'
+import aiConfig, {
+  AiConfig,
+  AiProvider,
+  DEFAULT_AI_CONFIG,
+  DEFAULT_GEMINI_MODEL,
+  DEFAULT_OPENAI_MODEL,
+} from '@/utils/aiConfig'
 import coverLetterStorage from '@/utils/coverLetter'
 import errors from '@/utils/errors'
-import openAiApiKeyStorage from '@/utils/openAiApiKey'
 import promptStorage from '@/utils/prompt'
 import { captureException } from '@/utils/sentry'
 import { helperKey } from '@/utils/system'
@@ -13,14 +19,18 @@ import {
   Box,
   Button,
   Divider,
+  FormControlLabel,
   IconButton,
   Link,
+  Radio,
+  RadioGroup,
   TextField,
   Typography,
 } from '@mui/material'
 import { useSnackbar } from 'notistack'
 import { useEffect, useState } from 'react'
 
+const GEMINI_API_KEYS_URL = 'https://aistudio.google.com/app/apikey'
 const OPENAI_API_KEYS_URL = 'https://platform.openai.com/api-keys'
 
 const MAX_TEXT_SIZE = 8000
@@ -42,8 +52,10 @@ const CoverLetter = () => {
 
   const [text, setText] = useState('')
   const [prompt, setPrompt] = useState(promptStorage.defaultPrompt)
+  const [config, setConfig] = useState<AiConfig>(DEFAULT_AI_CONFIG)
+  const [provider, setProvider] = useState<AiProvider>('gemini')
   const [apiKey, setApiKey] = useState('')
-  const [savedApiKey, setSavedApiKey] = useState('')
+  const [model, setModel] = useState(DEFAULT_GEMINI_MODEL)
   const [showApiKey, setShowApiKey] = useState(false)
   const [editingApiKey, setEditingApiKey] = useState(false)
   const [initialized, setInitialized] = useState(false)
@@ -51,17 +63,46 @@ const CoverLetter = () => {
   const [savingPrompt, setSavingPrompt] = useState(false)
   const [savingApiKey, setSavingApiKey] = useState(false)
 
-  // Gating reflects the persisted key, not the in-progress input value.
-  const hasApiKey = savedApiKey.trim().length > 0
+  const currentSavedKey =
+    provider === 'gemini' ? config.geminiApiKey : config.openaiApiKey
+
+  const currentSavedModel =
+    provider === 'gemini' ? config.geminiModel : config.openaiModel
+
+  // Gating reflects the persisted key for the active provider.
+  const hasApiKey = currentSavedKey.trim().length > 0
   const showKeyForm = !hasApiKey || editingApiKey
 
+  const onProviderChange = async (newProvider: AiProvider) => {
+    setProvider(newProvider)
+    const keyForProvider =
+      newProvider === 'gemini' ? config.geminiApiKey : config.openaiApiKey
+    const modelForProvider =
+      newProvider === 'gemini' ? config.geminiModel : config.openaiModel
+
+    setApiKey(keyForProvider)
+    setModel(modelForProvider)
+    setShowApiKey(false)
+    setEditingApiKey(false)
+
+    try {
+      const updated = await aiConfig.save({ provider: newProvider })
+      setConfig(updated)
+    } catch (error) {
+      captureException(error)
+      enqueueSnackbar(errors.getErrorMessage(error), { variant: 'error' })
+    }
+  }
+
   const onEditApiKey = () => {
-    setApiKey(savedApiKey)
+    setApiKey(currentSavedKey)
+    setModel(currentSavedModel)
     setEditingApiKey(true)
   }
 
   const onCancelEditApiKey = () => {
-    setApiKey(savedApiKey)
+    setApiKey(currentSavedKey)
+    setModel(currentSavedModel)
     setShowApiKey(false)
     setEditingApiKey(false)
   }
@@ -83,8 +124,23 @@ const CoverLetter = () => {
     }
 
   const onSaveApiKey = makeSaveHandler(setSavingApiKey, async () => {
-    setSavedApiKey(await openAiApiKeyStorage.save(apiKey.trim()))
+    const patch =
+      provider === 'gemini'
+        ? {
+            provider,
+            geminiApiKey: apiKey.trim(),
+            geminiModel: model.trim() || DEFAULT_GEMINI_MODEL,
+          }
+        : {
+            provider,
+            openaiApiKey: apiKey.trim(),
+            openaiModel: model.trim() || DEFAULT_OPENAI_MODEL,
+          }
+    const updated = await aiConfig.save(patch)
+    setConfig(updated)
+    setModel(provider === 'gemini' ? updated.geminiModel : updated.openaiModel)
     setEditingApiKey(false)
+    setShowApiKey(false)
   })
 
   const onSaveCoverLetter = makeSaveHandler(setSavingCoverLetter, () =>
@@ -97,16 +153,22 @@ const CoverLetter = () => {
 
   useEffect(() => {
     const init = async () => {
-      const [prompt, text, apiKey] = await Promise.all([
+      const [promptVal, textVal, aiCfg] = await Promise.all([
         promptStorage.get(),
         coverLetterStorage.get(),
-        openAiApiKeyStorage.get(),
+        aiConfig.get(),
       ])
 
-      setPrompt(prompt)
-      setText(text)
-      setApiKey(apiKey)
-      setSavedApiKey(apiKey)
+      setPrompt(promptVal)
+      setText(textVal)
+      setConfig(aiCfg)
+      setProvider(aiCfg.provider)
+      setApiKey(
+        aiCfg.provider === 'gemini' ? aiCfg.geminiApiKey : aiCfg.openaiApiKey
+      )
+      setModel(
+        aiCfg.provider === 'gemini' ? aiCfg.geminiModel : aiCfg.openaiModel
+      )
 
       setInitialized(true)
     }
@@ -117,12 +179,53 @@ const CoverLetter = () => {
   return (
     <Box sx={{ pb: 10 }}>
       <Typography variant="h6" component="h6">
-        Use ChatGPT to apply faster with personalized cover letters
+        Use AI to apply faster with personalized cover letters
       </Typography>
+
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Choose your AI provider:
+        </Typography>
+
+        <RadioGroup
+          row
+          value={provider}
+          onChange={(e) => onProviderChange(e.target.value as AiProvider)}
+        >
+          <FormControlLabel
+            value="gemini"
+            control={<Radio />}
+            label={<strong>Google Gemini</strong>}
+          />
+          <FormControlLabel
+            value="openai"
+            control={<Radio />}
+            label={<strong>OpenAI (ChatGPT)</strong>}
+          />
+        </RadioGroup>
+      </Box>
 
       {showKeyForm ? (
         <>
-          {!hasApiKey && (
+          {!hasApiKey && provider === 'gemini' && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              <AlertTitle>
+                Connect your Google Gemini API key to start generating cover
+                letters
+              </AlertTitle>
+              Cover letters are generated with Google's fast{' '}
+              <strong>gemini-2.0-flash</strong> model.
+              <br />
+              Get an API key at{' '}
+              <Link href={GEMINI_API_KEYS_URL} target="_blank" rel="noopener">
+                <strong>aistudio.google.com/app/apikey</strong>
+                <OpenInNew sx={{ verticalAlign: 'middle', fontSize: '100%' }} />
+              </Link>{' '}
+              and paste it below.
+            </Alert>
+          )}
+
+          {!hasApiKey && provider === 'openai' && (
             <Alert severity="info" sx={{ mt: 2 }}>
               <AlertTitle>
                 Connect your OpenAI API key to start generating cover letters
@@ -141,8 +244,10 @@ const CoverLetter = () => {
           <TextField
             fullWidth
             sx={{ mt: 2 }}
-            label="OpenAI API key"
-            placeholder="sk-..."
+            label={
+              provider === 'gemini' ? 'Google Gemini API key' : 'OpenAI API key'
+            }
+            placeholder={provider === 'gemini' ? 'AIzaSy...' : 'sk-...'}
             value={apiKey}
             type={showApiKey ? 'text' : 'password'}
             onChange={(e) => setApiKey(e.target.value)}
@@ -160,6 +265,25 @@ const CoverLetter = () => {
                 ),
               },
             }}
+          />
+
+          <TextField
+            fullWidth
+            sx={{ mt: 2 }}
+            label="Model"
+            placeholder={
+              provider === 'gemini'
+                ? DEFAULT_GEMINI_MODEL
+                : DEFAULT_OPENAI_MODEL
+            }
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            disabled={savingApiKey || !initialized}
+            helperText={
+              provider === 'gemini'
+                ? 'Default: gemini-2.0-flash (e.g. gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash)'
+                : 'Default: gpt-4o-mini (e.g. gpt-4o-mini, gpt-4o, o3-mini)'
+            }
           />
 
           <Box sx={{ mt: 3, textAlign: 'right' }}>
@@ -187,17 +311,31 @@ const CoverLetter = () => {
           </Box>
         </>
       ) : (
-        <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+        <Box sx={{ mt: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <TextField
+              fullWidth
+              disabled
+              label={
+                provider === 'gemini'
+                  ? 'Google Gemini API key'
+                  : 'OpenAI API key'
+              }
+              value={maskApiKey(currentSavedKey)}
+            />
+
+            <Button color="primary" variant="outlined" onClick={onEditApiKey}>
+              Edit
+            </Button>
+          </Box>
+
           <TextField
             fullWidth
             disabled
-            label="OpenAI API key"
-            value={maskApiKey(savedApiKey)}
+            sx={{ mt: 2 }}
+            label="Model"
+            value={currentSavedModel}
           />
-
-          <Button color="primary" variant="outlined" onClick={onEditApiKey}>
-            Edit
-          </Button>
         </Box>
       )}
 
@@ -206,8 +344,8 @@ const CoverLetter = () => {
           <Typography sx={{ mt: 2 }}>
             Create a detailed prompt below and next time you're on a job
             proposal page click "Generate" button under the cover letter input
-            (you can also use "{helperKey} + Enter" as a shortcut) and let
-            ChatGPT generate a unique cover letter.
+            (you can also use "{helperKey} + Enter" as a shortcut) and let AI
+            generate a unique cover letter.
             <br />
             <br />
             You can also edit the prompt for each job separately when you apply.

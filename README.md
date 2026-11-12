@@ -14,7 +14,7 @@ A Chrome extension that monitors your Upwork job feed in real time and alerts yo
 - **Instant Notifications** — Desktop notifications with sound alerts, volume control, and job deduplication.
 - **Mobile Alerts** — Forward new job notifications directly to your phone via Telegram, ntfy, or custom webhooks.
 - **Working Hours Scheduler** — Define active hours per day of the week to silence alerts outside working times.
-- **AI Cover Letter Generation** — Generate tailored proposals using your own OpenAI API key directly on the job application page.
+- **AI Cover Letter Generation** — Generate tailored proposals using Google Gemini (free via Google AI Studio) or OpenAI directly on the job application page.
 - **Cover Letter Templates** — Save and auto-insert reusable proposal drafts.
 - **Privacy First** — Completely local and open source. All telemetry and tracking have been removed.
 

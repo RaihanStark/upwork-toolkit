@@ -2,7 +2,7 @@ import { browser, defineBackground } from '#imports'
 import openAiApi from '@/api/openai'
 import extension, { Cycles } from '@/utils/extension'
 import stateStorage, { GlobalState } from '@/utils/globalState'
-import openAiApiKeyStorage from '@/utils/openAiApiKey'
+import aiConfig from '@/utils/aiConfig'
 import runtime, { GenerateCoverLetterResponse } from '@/utils/runtime'
 import { captureException } from '@/utils/sentry'
 import fetchJobs from './fetchJobs'
@@ -167,15 +167,17 @@ export default defineBackground({
         }
 
         try {
-          const apiKey = await openAiApiKeyStorage.get()
+          const activeAi = await aiConfig.getActive()
 
-          if (!apiKey) {
+          if (!activeAi.apiKey) {
             post({ type: 'error', error: 'NO_API_KEY' })
             return
           }
 
           await openAiApi.generateCoverLetter({
-            apiKey,
+            provider: activeAi.provider,
+            apiKey: activeAi.apiKey,
+            model: activeAi.model,
             prompt: message.prompt,
             signal: abortController.signal,
             onChunk: (content) => post({ type: 'chunk', content }),
@@ -189,7 +191,9 @@ export default defineBackground({
           }
 
           captureException(error)
-          post({ type: 'error', error: 'GENERATION_FAILED' })
+          const message =
+            error instanceof Error ? error.message : 'GENERATION_FAILED'
+          post({ type: 'error', error: 'GENERATION_FAILED', message })
         }
       })
     })
