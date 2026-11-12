@@ -25,6 +25,7 @@ import {
   AlertTitle,
   Box,
   Button,
+  Collapse,
   Divider,
   FormControlLabel,
   IconButton,
@@ -214,9 +215,14 @@ const MobileNotifications = () => {
   const ensureProviderHost = (provider: MobileProvider): Promise<boolean> => {
     if (provider === 'telegram') return Promise.resolve(true)
 
-    return ensureHost(
-      (provider === 'ntfy' ? config.ntfy.serverUrl : config.webhook.url).trim()
-    )
+    const rawUrl = (
+      provider === 'ntfy' ? config.ntfy.serverUrl : config.webhook.url
+    ).trim()
+
+    // If no URL is configured yet, allow toggling so user can configure the inputs.
+    if (!rawUrl) return Promise.resolve(true)
+
+    return ensureHost(rawUrl)
   }
 
   const onSaveProvider = async (provider: MobileProvider) => {
@@ -342,270 +348,310 @@ const MobileNotifications = () => {
 
       {/* Telegram */}
       <Paper variant="outlined" sx={{ mt: 3, p: 2 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={config.telegram.enabled}
-              disabled={!initialized}
-              onChange={(e) => onToggleProvider('telegram', e.target.checked)}
-            />
-          }
-          label={<strong>Telegram</strong>}
-        />
-
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Receive alerts as messages from your own Telegram bot.
-        </Typography>
-
-        <SetupGuide
-          steps={[
-            <>
-              Open Telegram and start a chat with{' '}
-              <A href="https://t.me/BotFather">@BotFather</A>. Send{' '}
-              <code>/newbot</code> and follow the prompts (pick a name, then a
-              username ending in <code>bot</code>).
-            </>,
-            <>
-              BotFather replies with a <strong>bot token</strong> like{' '}
-              <code>123456789:ABCdefGhIJKlm...</code>. Paste it into the{' '}
-              <strong>Bot token</strong> field below.
-            </>,
-            <>
-              Open a chat with your new bot and send it any message (e.g.{' '}
-              <code>hi</code>). A bot can only message you after you message it
-              first.
-            </>,
-            <>
-              Get your <strong>Chat ID</strong>: in your browser open{' '}
-              <code>https://api.telegram.org/bot&lt;token&gt;/getUpdates</code>,
-              putting your token right after <code>bot</code> with{' '}
-              <strong>no angle brackets</strong> — e.g.{' '}
-              <code>
-                https://api.telegram.org/bot123456789:ABCdef.../getUpdates
-              </code>
-              . Find{' '}
-              <code>
-                "chat":{'{'}"id":123456789{'}'}
-              </code>{' '}
-              in the response — that number is your Chat ID. (If you see{' '}
-              <code>"result":[]</code>, message your bot first, then reload.)
-            </>,
-            <>
-              Click <strong>Send test</strong> — a message should arrive on your
-              phone within a couple of seconds. To post to a group instead, add
-              the bot to the group and use the group's chat ID (it starts with{' '}
-              <code>-</code>).
-            </>,
-          ]}
-        />
-
-        {showTokenForm ? (
-          <TextField
-            fullWidth
-            sx={{ mt: 2 }}
-            label="Bot token"
-            placeholder="123456:ABC-DEF..."
-            value={config.telegram.botToken}
-            type={showToken ? 'text' : 'password'}
-            onChange={(e) =>
-              updateProvider('telegram', { botToken: e.target.value })
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <FormControlLabel
+            sx={{ m: 0 }}
+            control={
+              <Switch
+                checked={config.telegram.enabled}
+                disabled={!initialized}
+                onChange={(e) => onToggleProvider('telegram', e.target.checked)}
+              />
             }
-            disabled={!initialized}
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <IconButton
-                    edge="end"
-                    onClick={() => setShowToken((prev) => !prev)}
-                    aria-label={showToken ? 'Hide token' : 'Show token'}
-                  >
-                    {showToken ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                ),
-              },
-            }}
+            label={<strong>Telegram</strong>}
           />
-        ) : null}
+        </Box>
 
-        {showTokenForm && hasToken && (
-          <Box sx={{ mt: 1, textAlign: 'right' }}>
-            <Button color="inherit" size="small" onClick={onCancelEditToken}>
-              Cancel
-            </Button>
-          </Box>
-        )}
+        <Collapse in={config.telegram.enabled}>
+          <Box sx={{ pt: 1.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Receive alerts as messages from your own Telegram bot.
+            </Typography>
 
-        {!showTokenForm && (
-          <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+            <SetupGuide
+              steps={[
+                <>
+                  Open Telegram and start a chat with{' '}
+                  <A href="https://t.me/BotFather">@BotFather</A>. Send{' '}
+                  <code>/newbot</code> and follow the prompts (pick a name, then
+                  a username ending in <code>bot</code>).
+                </>,
+                <>
+                  BotFather replies with a <strong>bot token</strong> like{' '}
+                  <code>123456789:ABCdefGhIJKlm...</code>. Paste it into the{' '}
+                  <strong>Bot token</strong> field below.
+                </>,
+                <>
+                  Open a chat with your new bot and send it any message (e.g.{' '}
+                  <code>hi</code>). A bot can only message you after you message
+                  it first.
+                </>,
+                <>
+                  Get your <strong>Chat ID</strong>: in your browser open{' '}
+                  <code>
+                    https://api.telegram.org/bot&lt;token&gt;/getUpdates
+                  </code>
+                  , putting your token right after <code>bot</code> with{' '}
+                  <strong>no angle brackets</strong> — e.g.{' '}
+                  <code>
+                    https://api.telegram.org/bot123456789:ABCdef.../getUpdates
+                  </code>
+                  . Find{' '}
+                  <code>
+                    "chat":{'{'}"id":123456789{'}'}
+                  </code>{' '}
+                  in the response — that number is your Chat ID. (If you see{' '}
+                  <code>"result":[]</code>, message your bot first, then
+                  reload.)
+                </>,
+                <>
+                  Click <strong>Send test</strong> — a message should arrive on
+                  your phone within a couple of seconds. To post to a group
+                  instead, add the bot to the group and use the group's chat ID
+                  (it starts with <code>-</code>).
+                </>,
+              ]}
+            />
+
+            {showTokenForm ? (
+              <TextField
+                fullWidth
+                sx={{ mt: 2 }}
+                label="Bot token"
+                placeholder="123456:ABC-DEF..."
+                value={config.telegram.botToken}
+                type={showToken ? 'text' : 'password'}
+                onChange={(e) =>
+                  updateProvider('telegram', { botToken: e.target.value })
+                }
+                disabled={!initialized}
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <IconButton
+                        edge="end"
+                        onClick={() => setShowToken((prev) => !prev)}
+                        aria-label={showToken ? 'Hide token' : 'Show token'}
+                      >
+                        {showToken ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    ),
+                  },
+                }}
+              />
+            ) : null}
+
+            {showTokenForm && hasToken && (
+              <Box sx={{ mt: 1, textAlign: 'right' }}>
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={onCancelEditToken}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            )}
+
+            {!showTokenForm && (
+              <Box
+                sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}
+              >
+                <TextField
+                  fullWidth
+                  disabled
+                  label="Bot token"
+                  value={maskSecret(savedConfig.telegram.botToken)}
+                />
+
+                <Button
+                  color="primary"
+                  variant="outlined"
+                  onClick={onEditToken}
+                >
+                  Edit
+                </Button>
+              </Box>
+            )}
+
             <TextField
               fullWidth
-              disabled
-              label="Bot token"
-              value={maskSecret(savedConfig.telegram.botToken)}
+              sx={{ mt: 2 }}
+              label="Chat ID"
+              placeholder="123456789"
+              value={config.telegram.chatId}
+              onChange={(e) =>
+                updateProvider('telegram', { chatId: e.target.value })
+              }
+              disabled={!initialized}
             />
 
-            <Button color="primary" variant="outlined" onClick={onEditToken}>
-              Edit
-            </Button>
+            {actionButtons(
+              'telegram',
+              Boolean(
+                config.telegram.botToken.trim() && config.telegram.chatId.trim()
+              )
+            )}
           </Box>
-        )}
-
-        <TextField
-          fullWidth
-          sx={{ mt: 2 }}
-          label="Chat ID"
-          placeholder="123456789"
-          value={config.telegram.chatId}
-          onChange={(e) =>
-            updateProvider('telegram', { chatId: e.target.value })
-          }
-          disabled={!initialized}
-        />
-
-        {actionButtons(
-          'telegram',
-          Boolean(
-            config.telegram.botToken.trim() && config.telegram.chatId.trim()
-          )
-        )}
+        </Collapse>
       </Paper>
 
       {/* ntfy */}
       <Paper variant="outlined" sx={{ mt: 3, p: 2 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={config.ntfy.enabled}
-              disabled={!initialized}
-              onChange={(e) => onToggleProvider('ntfy', e.target.checked)}
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <FormControlLabel
+            sx={{ m: 0 }}
+            control={
+              <Switch
+                checked={config.ntfy.enabled}
+                disabled={!initialized}
+                onChange={(e) => onToggleProvider('ntfy', e.target.checked)}
+              />
+            }
+            label={<strong>ntfy</strong>}
+          />
+        </Box>
+
+        <Collapse in={config.ntfy.enabled}>
+          <Box sx={{ pt: 1.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              The simplest option — a free, open-source push app. No account
+              needed.
+            </Typography>
+
+            <SetupGuide
+              steps={[
+                <>
+                  Install the <strong>ntfy</strong> app:{' '}
+                  <A href="https://apps.apple.com/app/ntfy/id1625396347">
+                    iOS App Store
+                  </A>
+                  ,{' '}
+                  <A href="https://play.google.com/store/apps/details?id=io.heckel.ntfy">
+                    Google Play
+                  </A>
+                  .
+                </>,
+                <>
+                  In the app, tap <strong>+</strong> and subscribe to a new{' '}
+                  <strong>topic</strong>. Pick a long, hard-to-guess name —
+                  anyone who knows the topic can send you notifications (e.g.{' '}
+                  <code>upwork-alerts-7f3k9x</code>).
+                </>,
+                <>
+                  Enter that exact topic in the <strong>Topic</strong> field
+                  below. Leave <strong>Server URL</strong> as{' '}
+                  <code>https://ntfy.sh</code> unless you run your own ntfy
+                  server.
+                </>,
+                <>
+                  Click <strong>Send test</strong> — your phone should show a
+                  notification. Tapping it opens the job.
+                </>,
+              ]}
             />
-          }
-          label={<strong>ntfy</strong>}
-        />
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          The simplest option — a free, open-source push app. No account needed.
-        </Typography>
+            <TextField
+              fullWidth
+              sx={{ mt: 2 }}
+              label="Topic"
+              placeholder="my-upwork-alerts-9f3k"
+              value={config.ntfy.topic}
+              onChange={(e) =>
+                updateProvider('ntfy', { topic: e.target.value })
+              }
+              disabled={!initialized}
+            />
 
-        <SetupGuide
-          steps={[
-            <>
-              Install the <strong>ntfy</strong> app:{' '}
-              <A href="https://apps.apple.com/app/ntfy/id1625396347">
-                iOS App Store
-              </A>
-              ,{' '}
-              <A href="https://play.google.com/store/apps/details?id=io.heckel.ntfy">
-                Google Play
-              </A>
-              .
-            </>,
-            <>
-              In the app, tap <strong>+</strong> and subscribe to a new{' '}
-              <strong>topic</strong>. Pick a long, hard-to-guess name — anyone
-              who knows the topic can send you notifications (e.g.{' '}
-              <code>upwork-alerts-7f3k9x</code>).
-            </>,
-            <>
-              Enter that exact topic in the <strong>Topic</strong> field below.
-              Leave <strong>Server URL</strong> as <code>https://ntfy.sh</code>{' '}
-              unless you run your own ntfy server.
-            </>,
-            <>
-              Click <strong>Send test</strong> — your phone should show a
-              notification. Tapping it opens the job.
-            </>,
-          ]}
-        />
+            <TextField
+              fullWidth
+              sx={{ mt: 2 }}
+              label="Server URL"
+              placeholder={NTFY_DEFAULT_SERVER}
+              value={config.ntfy.serverUrl}
+              onChange={(e) =>
+                updateProvider('ntfy', { serverUrl: e.target.value })
+              }
+              disabled={!initialized}
+              helperText="Change only if you self-host ntfy."
+            />
 
-        <TextField
-          fullWidth
-          sx={{ mt: 2 }}
-          label="Topic"
-          placeholder="my-upwork-alerts-9f3k"
-          value={config.ntfy.topic}
-          onChange={(e) => updateProvider('ntfy', { topic: e.target.value })}
-          disabled={!initialized}
-        />
-
-        <TextField
-          fullWidth
-          sx={{ mt: 2 }}
-          label="Server URL"
-          placeholder={NTFY_DEFAULT_SERVER}
-          value={config.ntfy.serverUrl}
-          onChange={(e) =>
-            updateProvider('ntfy', { serverUrl: e.target.value })
-          }
-          disabled={!initialized}
-          helperText="Change only if you self-host ntfy."
-        />
-
-        {actionButtons(
-          'ntfy',
-          Boolean(config.ntfy.topic.trim() && config.ntfy.serverUrl.trim())
-        )}
+            {actionButtons(
+              'ntfy',
+              Boolean(config.ntfy.topic.trim() && config.ntfy.serverUrl.trim())
+            )}
+          </Box>
+        </Collapse>
       </Paper>
 
       {/* Webhook */}
       <Paper variant="outlined" sx={{ mt: 3, p: 2 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={config.webhook.enabled}
-              disabled={!initialized}
-              onChange={(e) => onToggleProvider('webhook', e.target.checked)}
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <FormControlLabel
+            sx={{ m: 0 }}
+            control={
+              <Switch
+                checked={config.webhook.enabled}
+                disabled={!initialized}
+                onChange={(e) => onToggleProvider('webhook', e.target.checked)}
+              />
+            }
+            label={<strong>Webhook</strong>}
+          />
+        </Box>
+
+        <Collapse in={config.webhook.enabled}>
+          <Box sx={{ pt: 1.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              POST new jobs to any automation platform or your own endpoint.
+            </Typography>
+
+            <SetupGuide
+              steps={[
+                <>
+                  Create an incoming webhook in your automation tool — Zapier
+                  (“Webhooks by Zapier → Catch Hook”), Make (“Custom webhook”),
+                  IFTTT (“Webhooks”), or your own HTTP endpoint. Just want to
+                  try it? Grab a free URL from{' '}
+                  <A href="https://webhook.site">webhook.site</A>.
+                </>,
+                <>
+                  Paste the full URL (starting with <code>https://</code>) in
+                  the field below. When you Save or Send test, Chrome asks
+                  permission to reach that host — click <strong>Allow</strong>.
+                </>,
+                <>
+                  On every batch of new jobs the extension sends a{' '}
+                  <code>POST</code> with a JSON body:{' '}
+                  <code>
+                    {
+                      '{ "event": "new_jobs", "count", "jobs": [{ id, title, url, type, budget, postedAt, skills, description, client, … }] }'
+                    }
+                  </code>
+                  .
+                </>,
+                <>
+                  Click <strong>Send test</strong> to deliver a sample payload
+                  and confirm your automation receives it.
+                </>,
+              ]}
             />
-          }
-          label={<strong>Webhook</strong>}
-        />
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          POST new jobs to any automation platform or your own endpoint.
-        </Typography>
+            <TextField
+              fullWidth
+              sx={{ mt: 2 }}
+              label="Webhook URL"
+              placeholder="https://hooks.example.com/..."
+              value={config.webhook.url}
+              onChange={(e) =>
+                updateProvider('webhook', { url: e.target.value })
+              }
+              disabled={!initialized}
+            />
 
-        <SetupGuide
-          steps={[
-            <>
-              Create an incoming webhook in your automation tool — Zapier
-              (“Webhooks by Zapier → Catch Hook”), Make (“Custom webhook”),
-              IFTTT (“Webhooks”), or your own HTTP endpoint. Just want to try
-              it? Grab a free URL from{' '}
-              <A href="https://webhook.site">webhook.site</A>.
-            </>,
-            <>
-              Paste the full URL (starting with <code>https://</code>) in the
-              field below. When you Save or Send test, Chrome asks permission to
-              reach that host — click <strong>Allow</strong>.
-            </>,
-            <>
-              On every batch of new jobs the extension sends a <code>POST</code>{' '}
-              with a JSON body:{' '}
-              <code>
-                {
-                  '{ "event": "new_jobs", "count", "jobs": [{ id, title, url, type, budget, postedAt, skills, description, client, … }] }'
-                }
-              </code>
-              .
-            </>,
-            <>
-              Click <strong>Send test</strong> to deliver a sample payload and
-              confirm your automation receives it.
-            </>,
-          ]}
-        />
-
-        <TextField
-          fullWidth
-          sx={{ mt: 2 }}
-          label="Webhook URL"
-          placeholder="https://hooks.example.com/..."
-          value={config.webhook.url}
-          onChange={(e) => updateProvider('webhook', { url: e.target.value })}
-          disabled={!initialized}
-        />
-
-        {actionButtons('webhook', Boolean(config.webhook.url.trim()))}
+            {actionButtons('webhook', Boolean(config.webhook.url.trim()))}
+          </Box>
+        </Collapse>
       </Paper>
 
       <Divider sx={{ my: 3 }} />
