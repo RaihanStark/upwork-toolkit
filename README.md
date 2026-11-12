@@ -6,6 +6,8 @@ instant new jobs appear, so you never miss an opportunity while you're away from
 This is the React + TypeScript rewrite of the original Vue extension that previously lived in
 this repository.
 
+> **Note**: This repository is an independent fork of the original [Upwork Toolkit by neeilya](https://github.com/neeilya/upwork-toolkit).
+
 ## Install
 
 Install the ready-to-use extension from the

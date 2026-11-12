@@ -5,7 +5,6 @@ import stateStorage, { GlobalState } from '@/utils/globalState'
 import openAiApiKeyStorage from '@/utils/openAiApiKey'
 import runtime, { GenerateCoverLetterResponse } from '@/utils/runtime'
 import { captureException } from '@/utils/sentry'
-import dailyReport from './dailyReport'
 import fetchJobs from './fetchJobs'
 
 const ENABLED_SCRIPTS: {
@@ -17,11 +16,6 @@ const ENABLED_SCRIPTS: {
     cycleName: extension.Cycles.FETCH_JOBS,
     delayInMinutes: extension.debugEnabled ? 5 / 60 : 0, // 5 seconds in dev
     periodInMinutes: 1,
-  },
-  {
-    cycleName: extension.Cycles.DAILY_REPORT,
-    delayInMinutes: 10 / 60, // 10 seconds
-    periodInMinutes: 60 * 24, // every day
   },
 ]
 
@@ -78,8 +72,6 @@ export default defineBackground({
         switch (alarm.name) {
           case extension.Cycles.FETCH_JOBS:
             return await fetchJobs()
-          case extension.Cycles.DAILY_REPORT:
-            return await dailyReport()
         }
       } catch (error) {
         captureException(error)

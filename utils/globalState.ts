@@ -1,7 +1,6 @@
 import { storage } from '#imports'
 import { FeedType } from '@/api/upwork'
 import isFunction from 'lodash/isFunction'
-import { v4 } from 'uuid'
 import { ErrorType } from './errors'
 import extension from './extension'
 
@@ -19,7 +18,6 @@ export type Schedule = {
  * Global state persisted in cloud storage
  */
 export type GlobalState = {
-  instanceId: string
   enabled: boolean
   darkMode: DarkMode
   compactList: boolean
@@ -45,12 +43,9 @@ export type GlobalState = {
   schedulingEnabled: boolean
   schedules: Schedule[]
   usTimeFormat: boolean
-
-  usernameHash: string | null
 }
 
 const getDefaultState = (): GlobalState => ({
-  instanceId: v4(),
   enabled: true,
   darkMode: 'system',
   compactList: true,
@@ -72,8 +67,6 @@ const getDefaultState = (): GlobalState => ({
   schedulingEnabled: false,
   schedules: [],
   usTimeFormat: false,
-
-  usernameHash: null,
 })
 
 const get = () =>

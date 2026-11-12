@@ -5,11 +5,10 @@ import ErrorCapture from './ErrorCapture'
 import Debug from './pages/Debug'
 import Layout from './pages/Layout'
 import { SnackbarProvider } from 'notistack'
-import analytics from '@/utils/analytics'
 import Settings from './pages/Settings'
 import CoverLetter from './pages/CoverLetter'
 import MobileNotifications from './pages/MobileNotifications'
-import { useContext, useEffect, useState } from 'react'
+import { useContext } from 'react'
 import { LocalizationProvider } from '@mui/x-date-pickers'
 import { Route, Routes, HashRouter } from 'react-router-dom'
 import Storage, { StorageInterface } from '@/contexts/storage'
@@ -18,20 +17,6 @@ import AppProvider from '@/components/AppProvider'
 
 const App = () => {
   const storage = useContext<StorageInterface>(Storage)
-  const [path, setPath] = useState(window.location.hash)
-
-  useEffect(() => {
-    const interval = setInterval(() => setPath(window.location.hash), 500)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    analytics.sendEvent({
-      event: analytics.Event.PAGE_VIEW,
-      params: { page_title: path, page_location: path },
-    })
-  }, [path])
 
   return (
     <AppProvider>

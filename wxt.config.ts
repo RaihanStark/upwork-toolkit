@@ -1,5 +1,4 @@
 import { defineConfig } from 'wxt'
-import { sentryVitePlugin } from '@sentry/vite-plugin'
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
@@ -44,15 +43,6 @@ export default defineConfig({
     disabled: true,
   },
   vite: () => ({
-    plugins: [
-      sentryVitePlugin({
-        authToken: import.meta.env.SENTRY_AUTH_TOKEN,
-        debug: import.meta.env.DEV,
-        org: import.meta.env.SENTRY_ORGANISATION,
-        project: import.meta.env.SENTRY_PROJECT,
-        telemetry: false,
-      }),
-    ],
     build: {
       chunkSizeWarningLimit: 10000,
       sourcemap: true,

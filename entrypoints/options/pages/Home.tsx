@@ -3,7 +3,6 @@ import upworkApi, { Job } from '@/api/upwork'
 import Storage, { StorageInterface } from '@/contexts/storage'
 import GirlReading from '@/icons/GirlReading'
 import alerts, { Alert } from '@/utils/alerts'
-import analytics from '@/utils/analytics'
 import colors from '@/utils/colors'
 import { ErrorType } from '@/utils/errors'
 import extension from '@/utils/extension'
@@ -90,8 +89,6 @@ const Home = () => {
     window.open(upworkApi.viewUrl(job.ciphertext), '_blank')
 
     setUnseenIds((unseenIds) => unseenIds.filter((id) => id !== job.ciphertext))
-
-    analytics.sendEvent({ event: analytics.Event.JOB_CLICK })
   }
 
   const renderAlert = () => {

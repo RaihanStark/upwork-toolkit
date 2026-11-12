@@ -1,7 +1,6 @@
 import { browser } from '#imports'
 import upworkApi, { FeedType } from '@/api/upwork'
 import Storage, { StorageInterface } from '@/contexts/storage'
-import analytics from '@/utils/analytics'
 import colors from '@/utils/colors'
 import { Event, eventEmitter } from '@/utils/events'
 import extension from '@/utils/extension'
@@ -85,7 +84,6 @@ const Settings = () => {
   useEffect(() => {
     if (versionClicks > 10) {
       eventEmitter.emit(Event.DEBUG_MODE_TRIGGERED)
-      analytics.sendEvent({ event: analytics.Event.DEBUG_MODE_TRIGGERED })
     }
   }, [versionClicks])
 

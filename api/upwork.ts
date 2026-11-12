@@ -6,12 +6,7 @@ import timer from '@/utils/timer'
 import axios, { AxiosResponse } from 'axios'
 import isString from 'lodash/isString'
 
-import {
-  bestMatchesQuery,
-  mostRecentQuery,
-  myFeedQuery,
-  userQuery,
-} from './gqlQueries'
+import { bestMatchesQuery, mostRecentQuery, myFeedQuery } from './gqlQueries'
 
 import { BestMatches as BestMatchesResponseType } from './responses/BestMatches'
 import { MostRecent as MostRecentResponseType } from './responses/MostRecent'
@@ -329,42 +324,6 @@ const viewUrl = (id: string) => `https://upwork.com/jobs/${id}`
 const proposalUrl = (id: string) =>
   `https://upwork.com/ab/proposals/job/${id}/apply`
 
-const getUsernameToken = () =>
-  getCookieToken({
-    path: '/freelancers/settings/',
-    triggerCookieToken: () =>
-      api.get('/freelancers/settings/contactInfo', { headers: pageHeaders }),
-  })
-
-const getUsername = async (): Promise<string | null> => {
-  const cookie = await getUsernameToken()
-
-  if (!cookie) {
-    throw new Error(ErrorType.UNAUTHENTICATED)
-  }
-
-  type UserResponse = {
-    data: {
-      user: {
-        id: string | null
-        rid: string | null
-        nid: string | null
-      }
-    }
-  }
-
-  const response = await api.post<UserResponse>(
-    'api/graphql/v1',
-    {
-      query: userQuery,
-      variables: { queryParams: {} },
-    },
-    { headers: { Authorization: `bearer ${cookie.value}` } }
-  )
-
-  return response.data.data.user.nid
-}
-
 const isUnauthenticatedError = (error: any) =>
   (axios.isAxiosError(error) && error.response?.status === 401) ||
   error?.message === ErrorType.UNAUTHENTICATED
@@ -389,8 +348,6 @@ const shouldIgnoreError = (error: any) =>
 export default {
   getJobs,
   getJobsToken,
-  getUsername,
-  getUsernameToken,
   feedOptions,
   isUnauthenticatedError,
   isForbiddenError,

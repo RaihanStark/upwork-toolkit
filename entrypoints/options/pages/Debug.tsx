@@ -8,12 +8,7 @@ const Debug = () => {
   const storage = useContext<StorageInterface>(Storage)
 
   const onGlobalStateReset = async () => {
-    const currentState = await globalState.get()
-
-    await storage.setState({
-      ...globalState.getDefaultState(),
-      instanceId: currentState.instanceId,
-    })
+    await storage.setState(globalState.getDefaultState())
   }
 
   return (
