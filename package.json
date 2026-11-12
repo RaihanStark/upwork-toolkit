@@ -1,8 +1,17 @@
 {
-  "name": "uptoolkit",
+  "name": "upwork-toolkit",
   "private": true,
   "version": "1.6.0",
   "description": "Your own freelance assistant for Upwork",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RaihanStark/upwork-toolkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RaihanStark/upwork-toolkit/issues"
+  },
+  "homepage": "https://github.com/RaihanStark/upwork-toolkit#readme",
   "type": "module",
   "engines": {
     "node": ">=20"

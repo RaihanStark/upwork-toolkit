@@ -1,141 +1,72 @@
-![alt tag](https://github.com/neeilya/upwork-toolkit/blob/master/cover.png?raw=true)
+![Upwork Toolkit](./cover.png)
 
-A browser extension that monitors your Upwork job feed in real time and notifies you the
-instant new jobs appear, so you never miss an opportunity while you're away from the screen.
+# Upwork Toolkit
 
-This is the React + TypeScript rewrite of the original Vue extension that previously lived in
-this repository.
+A Chrome extension that monitors your Upwork job feed in real time and alerts you the instant matching jobs are posted.
 
 > **Note**: This repository is an independent fork of the original [Upwork Toolkit by neeilya](https://github.com/neeilya/upwork-toolkit).
 
-## Install
-
-Build the extension from source and load it as an unpacked extension in Chrome:
-
-```bash
-# 1. Install dependencies (Node >= 20)
-npm install
-
-# 2. Build the extension
-npm run build
-```
-
-Then load the unpacked extension:
-
-1. Open `chrome://extensions` in Chrome.
-2. Enable **Developer mode** (top-right toggle).
-3. Click **Load unpacked** and select the `build/chrome-mv3` directory.
-
-Feedback and contributions are highly appreciated!
-
-## Note to freelancers
-
-The extension reads items from your **personal** job feed. If you're new to the platform, that
-feed may be empty at first. To personalize it, run a job search on Upwork with some criteria
-(keywords, minimum budget, etc.) and **save the search** — the extension will then track matching
-jobs as they appear.
-
-More details about the job feed and other common concerns can be found in the **FAQ** section
-inside the extension.
+---
 
 ## Features
 
-- **Real-time job monitoring** across three feeds: _My Feed / Saved Searches_, _Best Matches_,
-  and _Most Recent_.
-- **Desktop notifications** that are clickable, with optional **sound** and volume control, an
-  **unseen-jobs badge** on the toolbar icon, and **deduplication** so you're never notified twice
-  about the same job.
-- **Scheduled notifications** — define working-hours windows per day of the week (12- or 24-hour
-  format); jobs found outside your schedule are cached silently.
-- **Cover-letter templates** — save reusable cover-letter text that auto-fills the proposal form
-  when you open a job's apply page.
-- **Job browsing UI** — job cards with compact/detailed toggle and dark mode (On / Off / System).
-- **Settings** — master on/off switch, feed source selection, sound preferences, and an option to
-  auto-open the proposal page for new jobs.
+- **Real-time Job Monitoring** — Tracks _My Feed / Saved Searches_, _Best Matches_, and _Most Recent_ feeds.
+- **Instant Notifications** — Desktop notifications with sound alerts, volume control, and job deduplication.
+- **Mobile Alerts** — Forward new job notifications directly to your phone via Telegram, ntfy, or custom webhooks.
+- **Working Hours Scheduler** — Define active hours per day of the week to silence alerts outside working times.
+- **AI Cover Letter Generation** — Generate tailored proposals using your own OpenAI API key directly on the job application page.
+- **Cover Letter Templates** — Save and auto-insert reusable proposal drafts.
+- **Privacy First** — Completely local and open source. All telemetry and tracking have been removed.
 
-## Tech stack
+---
 
-- [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- [WXT](https://wxt.dev/) — browser-extension framework (Chrome MV3)
-- [Material UI 9](https://mui.com/) + [Emotion](https://emotion.sh/)
-- [Axios](https://axios-http.com/), [date-fns](https://date-fns.org/)
+## Quickstart
 
-Node 22 is recommended (see `.nvmrc`); Node 20 is the minimum supported version.
+### 1. Install & Build
 
-## Getting started
-
-Build the extension from source and load it as an unpacked extension:
+Requires **Node.js >= 20** (Node 22 recommended):
 
 ```bash
-# 1. Install dependencies (Node >= 20)
+# Clone the repository
+git clone https://github.com/RaihanStark/upwork-toolkit.git
+cd upwork-toolkit
+
+# Install dependencies
 npm install
 
-# 2a. Run a live-reload dev build...
-npm run dev
-
-# 2b. ...or produce a production build
+# Build extension for Chrome MV3
 npm run build
 ```
 
-`npm run build` writes the extension to `build/chrome-mv3`. To load it:
+### 2. Load in Chrome
 
-1. Open `chrome://extensions` in Chrome.
-2. Enable **Developer mode** (top-right).
+1. Open Chrome and navigate to `chrome://extensions`.
+2. Toggle on **Developer mode** (top-right switch).
 3. Click **Load unpacked** and select the `build/chrome-mv3` directory.
+4. Log into Upwork in Chrome. The extension uses your active session cookies automatically.
 
-## Scripts
+---
 
-| Script            | Description                                   |
+## Development Scripts
+
+| Command           | Description                                   |
 | ----------------- | --------------------------------------------- |
-| `npm run dev`     | Start a live-reload development build         |
-| `npm run build`   | Produce a production build in `build/`        |
+| `npm run dev`     | Start extension in live-reload dev mode       |
+| `npm run build`   | Create production build in `build/chrome-mv3` |
+| `npm run compile` | Type-check TypeScript code (`tsc --noEmit`)   |
+| `npm run format`  | Format codebase with Prettier                 |
 | `npm run zip`     | Package the build into a distributable `.zip` |
-| `npm run compile` | Type-check the project (`tsc --noEmit`)       |
-| `npm run format`  | Format the codebase with Prettier             |
 
-Experimental Firefox variants (`dev:firefox`, `build:firefox`, `zip:firefox`) exist, but Chrome
-MV3 is the supported target.
+---
 
-## How it works
+## How It Works
 
-- **Authentication** — the extension uses your existing Upwork session via cookies; there's no
-  separate login or OAuth flow. It calls the Upwork GraphQL API at
-  `https://www.upwork.com/api/graphql/v1`.
-- **Background polling** — a service worker runs on Chrome alarms, fetching jobs roughly once a
-  minute (every few seconds in dev mode).
-- **Sound** — notification sounds are played through an offscreen document (required for audio in
-  Manifest V3 service workers).
+- **Authentication**: Uses your active Upwork session cookies to query `https://www.upwork.com/api/graphql/v1`. No separate credentials or OAuth required.
+- **Background Worker**: Manifest V3 service worker polls your feeds based on Chrome alarms.
+- **Audio Playback**: Uses an offscreen document to play notification sounds reliably in MV3.
+- **Zero Tracking**: Telemetry, Sentry, and Google Analytics are completely removed.
 
-## Permissions
-
-| Permission              | Why it's needed                                          |
-| ----------------------- | -------------------------------------------------------- |
-| `idle`                  | Detect user activity for scheduling                      |
-| `alarms`                | Schedule periodic background job fetches                 |
-| `storage`               | Persist settings, schedules, and cached jobs             |
-| `cookies`               | Use your existing Upwork session for API requests        |
-| `offscreen`             | Play notification sounds in Manifest V3                  |
-| `notifications`         | Show desktop notifications for new jobs                  |
-| `declarativeNetRequest` | Adjust request headers needed to call the Upwork API     |
-| `https://*.upwork.com/` | Host access for reading your job feed and proposal pages |
-
-## Project structure
-
-```
-uptoolkit/
-├── entrypoints/        # Extension contexts
-│   ├── background/     # Service worker (alarms, job fetching)
-│   ├── content/        # Content scripts (Upwork proposal pages)
-│   ├── offscreen/      # Audio playback document
-│   └── options/        # Settings & dashboard UI (pages, components)
-├── api/                # Upwork GraphQL API + GraphQL queries
-├── utils/              # State, notifications, analytics, logging, etc.
-├── components/         # Shared UI components
-├── hooks/              # Custom React hooks
-├── contexts/           # React contexts (storage)
-├── icons/              # Icon components
-└── public/             # Static assets (icons, sound, HTML)
-```
+---
 
 ## License
 

@@ -50,7 +50,13 @@ const Layout = () => {
   const unseenJobs = storage.jobs.filter((job) => !job.__isSeen)
 
   const socialLinks = [
-    { href: import.meta.env.WXT_GITHUB_URL, label: 'GitHub', Icon: GithubIcon },
+    {
+      href:
+        import.meta.env.WXT_GITHUB_URL ||
+        'https://github.com/RaihanStark/upwork-toolkit',
+      label: 'GitHub',
+      Icon: GithubIcon,
+    },
     { href: import.meta.env.WXT_X_URL, label: 'X', Icon: XIcon, fontSize: 18 },
   ].filter((link) => link.href)
 
