@@ -57,7 +57,7 @@ const Layout = () => {
   const menuLinks: MenuLink[] = [
     { text: 'Jobs', href: '', count: unseenIds.length || unseenJobs.length },
     { text: 'Cover letter', href: 'cover-letter' },
-    { text: 'Mobile alerts', href: 'mobile-notifications', new: true },
+    { text: 'Mobile alerts', href: 'mobile-notifications' },
     { text: 'Settings', href: 'settings' },
     ...(import.meta.env.DEV || debugMode
       ? [

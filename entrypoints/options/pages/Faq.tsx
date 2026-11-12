@@ -14,8 +14,6 @@ import { ReactNode } from 'react'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import { PublicPath } from 'wxt/browser'
 
-const supportEmail = 'support@uptoolkit.io'
-
 type Section = {
   title: string
   body: ReactNode
@@ -117,25 +115,25 @@ const sections: Section[] = [
     title: 'Extension is not working',
     body: (
       <>
-        <Typography variant="h6">Reinstall the extension</Typography>
-        As a first step try reinstalling the extension and see if it's working:
+        <Typography variant="h6">Reload or reinstall the extension</Typography>
+        As a first step try reloading or reinstalling the extension:
         <ol>
           <li>
             If you use cover letter template - save it in a temporary text file
-            to re-add later, as it will be erased.
+            to re-add later, as removing the extension will erase it.
           </li>
           <li>
-            Open the extension page in{' '}
-            <Link
-              target="_blank"
-              rel="noopener noreferrer"
-              href="https://chrome.google.com/webstore/detail/upwork-toolkit-your-own-f/gcjmekbfkkmaccloaoccfiohjnmgkddm"
-            >
-              Chrome store <OpenNewPageIcon />
-            </Link>
+            Open <code>chrome://extensions</code> in your browser.
           </li>
-          <li>Click on "Remove from Chrome" button and confirm action</li>
-          <li>Click on "Add to Chrome" button and confirm</li>
+          <li>
+            Find <strong>Upwork Toolkit</strong> and click the{' '}
+            <strong>Reload</strong> icon.
+          </li>
+          <li>
+            If issues persist, remove the extension and re-add it using{' '}
+            <strong>Load unpacked</strong> pointing to{' '}
+            <code>build/chrome-mv3</code>.
+          </li>
         </ol>
         <Typography variant="h6" sx={{ mt: 3 }}>
           Check your browser version
@@ -157,13 +155,20 @@ const sections: Section[] = [
         If your browser is older, please update it and see if the extension
         works.
         <Typography variant="h6" sx={{ mt: 3 }}>
-          Reach out to support
+          Reach out for help
         </Typography>
-        If the steps above have not fixed the issue - feel free to contact
-        support via <Link href={`mailto:${supportEmail}`}>{supportEmail}</Link>.
+        If the steps above have not fixed the issue, please open an issue on{' '}
+        <Link
+          target="_blank"
+          rel="noopener noreferrer"
+          href="https://github.com/RaihanStark/upwork-toolkit/issues"
+        >
+          GitHub Issues <OpenNewPageIcon />
+        </Link>
+        .
         <br />
         <br />
-        Please include following information in your email to get help faster:
+        Please include following information in your issue to get help faster:
         <ul>
           <li>Browser name and version</li>
           <li>Extension version</li>
@@ -185,8 +190,16 @@ const sections: Section[] = [
     title: 'How to request a feature?',
     body: (
       <>
-        If you'd like to request a new feature or report a bug please send us an
-        email via <Link href={`mailto:${supportEmail}`}>{supportEmail}</Link>
+        If you'd like to request a new feature or report a bug, please open an
+        issue on{' '}
+        <Link
+          target="_blank"
+          rel="noopener noreferrer"
+          href="https://github.com/RaihanStark/upwork-toolkit/issues"
+        >
+          GitHub Issues <OpenNewPageIcon />
+        </Link>
+        .
       </>
     ),
   },

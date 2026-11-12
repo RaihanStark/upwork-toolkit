@@ -77,45 +77,6 @@ const all: Alert[] = [
   //   ),
   // },
   // {
-  //   id: '1',
-  //   variant: 'filled',
-  //   severity: 'success',
-  //   title: 'Enjoying Upwork toolkit?',
-  //   titleProps: { sx: { fontWeight: 600 } },
-  //   renderBody: (props) => (
-  //     <>
-  //       <Rating
-  //         color="success"
-  //         readOnly
-  //         sx={{
-  //           '& .MuiRating-icon': (theme) => ({
-  //             filter: 'brightness(0.5)',
-  //             color: theme.palette.success.main,
-  //           }),
-  //         }}
-  //         value={100}
-  //       />
-  //
-  //       <Typography sx={{ fontWeight: 500 }}>
-  //         Please consider writing a review.
-  //         <br />
-  //         It will help us make extension even better for you!
-  //       </Typography>
-  //
-  //       <Button
-  //         sx={{ mt: 2 }}
-  //         target="_blank"
-  //         variant="contained"
-  //         rel="noreferrer noopener"
-  //         onClick={props.onInteracted}
-  //         href="https://chrome.google.com/webstore/detail/upwork-toolkit-your-perso/gcjmekbfkkmaccloaoccfiohjnmgkddm"
-  //       >
-  //         Write a review
-  //       </Button>
-  //     </>
-  //   ),
-  // },
-  // {
   //   id: '2',
   //   variant: 'filled',
   //   severity: 'info',
