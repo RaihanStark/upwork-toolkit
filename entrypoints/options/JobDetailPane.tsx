@@ -2,7 +2,9 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Divider,
+  LinearProgress,
   Paper,
   Rating,
   Stack,
@@ -26,9 +28,14 @@ import colors from '@/utils/colors'
 
 type Props = {
   job: Job
+  isStale?: boolean
   onApply: (job: Job) => void
   onBack?: () => void
-  onConnectPriceFetched?: (ciphertext: string, connects: number) => void
+  onSyncStatusChange?: (isSyncing: boolean) => void
+  onJobLiveUpdated?: (
+    ciphertext: string,
+    updates: { connects?: number; proposalsTier?: string }
+  ) => void
 }
 
 const capitalizeFirst = (string: string) =>
@@ -79,316 +86,307 @@ const JobDetailPane = (props: Props) => {
   useEffect(() => {
     let isMounted = true
 
-    // Check if we have a valid required connects count (must be <= 50, not user balance)
-    if (job.connectPrice && job.connectPrice > 0 && job.connectPrice <= 50) {
-      setFetchedConnects(job.connectPrice)
+    // Check if we need to fetch: if stale, or if connectPrice is missing / invalid
+    const needsFetch =
+      props.isStale ||
+      !job.connectPrice ||
+      job.connectPrice <= 0 ||
+      job.connectPrice > 50
+
+    if (!needsFetch) {
+      setFetchedConnects(job.connectPrice ?? null)
       setIsLoadingConnects(false)
+      props.onSyncStatusChange?.(false)
       return
     }
 
-    setFetchedConnects(null)
+    setFetchedConnects(
+      job.connectPrice && job.connectPrice <= 50 ? job.connectPrice : null
+    )
     setIsLoadingConnects(true)
+    props.onSyncStatusChange?.(true)
 
     upworkApi
-      .fetchJobConnects(job.ciphertext)
-      .then((connects) => {
+      .fetchJobLiveUpdates(job.ciphertext)
+      .then(({ connects, proposalsTier }) => {
         if (!isMounted) return
         setIsLoadingConnects(false)
+        props.onSyncStatusChange?.(false)
+        const updates: { connects?: number; proposalsTier?: string } = {}
+
         if (connects && connects > 0 && connects <= 50) {
           setFetchedConnects(connects)
-          props.onConnectPriceFetched?.(job.ciphertext, connects)
+          updates.connects = connects
         }
+
+        if (proposalsTier) {
+          updates.proposalsTier = proposalsTier
+        }
+
+        props.onJobLiveUpdated?.(job.ciphertext, updates)
       })
       .catch(() => {
-        if (isMounted) setIsLoadingConnects(false)
+        if (isMounted) {
+          setIsLoadingConnects(false)
+          props.onSyncStatusChange?.(false)
+        }
       })
 
     return () => {
       isMounted = false
+      props.onSyncStatusChange?.(false)
     }
-  }, [job.ciphertext, job.connectPrice])
+  }, [job.ciphertext, job.connectPrice, props.isStale])
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
-      {/* Top action header */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 1.5,
-          mb: 2.5,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {props.onBack && (
-            <Button
-              size="small"
-              startIcon={<ArrowBack />}
-              onClick={props.onBack}
-              sx={{ textTransform: 'none', mr: 1 }}
-            >
-              Back
-            </Button>
-          )}
-
-          {!job.__isSeen && (
-            <Chip
-              size="small"
-              label="New"
-              sx={{
-                fontWeight: 700,
-                backgroundColor: isDarkMode ? colors.orange : colors.warning,
-                color: isDarkMode ? '#fff' : '#000',
-              }}
-            />
-          )}
-
-          <Typography variant="caption" color="textSecondary">
-            Posted {moment(job.renewedOn ?? job.createdOn).fromNow()}
-          </Typography>
-        </Box>
-
-        <Stack direction="row" spacing={1}>
-          <Button
-            size="small"
-            variant="outlined"
-            component="a"
-            href={upworkApi.viewUrl(job.ciphertext)}
-            target="_blank"
-            rel="noopener noreferrer"
-            endIcon={<OpenInNew fontSize="small" />}
-            sx={{ textTransform: 'none' }}
-          >
-            View Job
-          </Button>
-
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            onClick={() => props.onApply(job)}
-            startIcon={<Bolt fontSize="small" />}
-            endIcon={<OpenInNew fontSize="small" />}
-            sx={{ textTransform: 'none', fontWeight: 600 }}
-          >
-            Apply Now
-          </Button>
-        </Stack>
-      </Box>
-
-      {/* Job Title */}
-      <Typography
-        variant="h5"
-        component="h1"
-        sx={{
-          fontWeight: 700,
-          mb: 2,
-          lineHeight: 1.3,
-        }}
-        dangerouslySetInnerHTML={{ __html: job.title }}
-      />
-
-      {/* Key Metric Badges */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
-        <Chip
-          label={formatBudget(job)}
-          color="primary"
-          variant={isDarkMode ? 'outlined' : 'filled'}
-          sx={{ fontWeight: 600 }}
-        />
-
-        {job.proposalsTier && (
-          <Chip
-            size="medium"
-            label={`Proposals: ${job.proposalsTier}`}
-            color={getProposalsTierColor(job.proposalsTier)}
-            variant="outlined"
-            sx={{ fontWeight: 500 }}
-          />
-        )}
-
-        {job.tierText && (
-          <Chip
-            size="medium"
-            label={`Experience: ${capitalizeFirst(job.tierText)}`}
-            variant="outlined"
-          />
-        )}
-
-        {job.durationLabel && (
-          <Chip
-            size="medium"
-            label={`Duration: ${capitalizeFirst(job.durationLabel)}`}
-            variant="outlined"
-          />
-        )}
-
-        {job.engagement && job.engagement !== 'not_sure' && (
-          <Chip
-            size="medium"
-            label={`Engagement: ${job.engagement}`}
-            variant="outlined"
-          />
-        )}
-
-        {/* Dynamic Connects Badge */}
-        {fetchedConnects !== null && fetchedConnects > 0 ? (
-          <Tooltip
-            title={`At $0.15 USD per Connect, this proposal costs ~$${(fetchedConnects * 0.15).toFixed(2)} USD`}
-          >
-            <Chip
-              size="medium"
-              label={`${fetchedConnects} Connects (~$${(fetchedConnects * 0.15).toFixed(2)})`}
-              variant="outlined"
-              color="primary"
-            />
-          </Tooltip>
-        ) : isLoadingConnects ? (
-          <Chip
-            size="medium"
-            label="Checking connects..."
-            variant="outlined"
-            sx={{ opacity: 0.6 }}
-          />
-        ) : null}
-      </Box>
-
-      {/* Previous Client Banner */}
-      {job.clientRelation && (
-        <Paper
-          variant="outlined"
+    <Box sx={{ position: 'relative' }}>
+      {isLoadingConnects && (
+        <LinearProgress
           sx={{
-            p: 1.5,
-            mb: 3,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2,
+            height: 3,
+            borderTopLeftRadius: 8,
+            borderTopRightRadius: 8,
+          }}
+        />
+      )}
+      <Box sx={{ p: { xs: 2, md: 3 } }}>
+        {/* Top action header */}
+        <Box
+          sx={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
             gap: 1.5,
-            borderColor: 'info.main',
-            backgroundColor: isDarkMode
-              ? 'rgba(2, 144, 209, 0.1)'
-              : 'rgba(2, 144, 209, 0.05)',
+            mb: 2.5,
           }}
         >
-          <Handshake color="info" fontSize="large" />
-          <Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Previous Client
-            </Typography>
-            <Typography variant="caption" color="textSecondary">
-              You worked with this client previously.
-            </Typography>
-          </Box>
-        </Paper>
-      )}
-
-      {/* Client Intelligence Dossier */}
-      {job.client && (
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2.5,
-            mb: 3,
-            borderRadius: 2,
-            backgroundColor: isDarkMode ? '#161c24' : '#fafafa',
-          }}
-        >
-          <Typography
-            variant="subtitle2"
-            sx={{
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              color: 'text.secondary',
-              mb: 2,
-            }}
-          >
-            About the Client
-          </Typography>
-
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: '1fr 1fr',
-                md: '1fr 1fr 1fr',
-              },
-              gap: 2,
-            }}
-          >
-            {/* Payment & Rating */}
-            <Box>
-              <Typography variant="caption" color="textSecondary">
-                Payment & Rating
-              </Typography>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  mt: 0.5,
-                }}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {props.onBack && (
+              <Button
+                size="small"
+                startIcon={<ArrowBack />}
+                onClick={props.onBack}
+                sx={{ textTransform: 'none', mr: 1 }}
               >
-                {job.client.paymentVerificationStatus === 1 ? (
-                  <>
-                    <Verified color="info" fontSize="small" />
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Payment verified
-                    </Typography>
-                  </>
-                ) : (
-                  <>
-                    <CreditCardOff color="action" fontSize="small" />
-                    <Typography variant="body2" color="textSecondary">
-                      Payment unverified
-                    </Typography>
-                  </>
-                )}
-              </Box>
+                Back
+              </Button>
+            )}
 
-              {job.client.totalFeedback > 0 && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.75,
-                    mt: 0.5,
-                  }}
-                >
-                  <Rating
-                    readOnly
-                    precision={0.1}
-                    size="small"
-                    value={job.client.totalFeedback}
-                  />
-                  <Typography variant="caption" color="textSecondary">
-                    {job.client.totalFeedback.toFixed(1)}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
+            {!job.__isSeen && (
+              <Chip
+                size="small"
+                label="New"
+                sx={{
+                  fontWeight: 700,
+                  backgroundColor: isDarkMode ? colors.orange : colors.warning,
+                  color: isDarkMode ? '#fff' : '#000',
+                }}
+              />
+            )}
 
-            {/* Total Spend & Location */}
+            <Typography variant="caption" color="textSecondary">
+              Posted {moment(job.renewedOn ?? job.createdOn).fromNow()}
+            </Typography>
+
+            {isLoadingConnects ? (
+              <Chip
+                size="small"
+                icon={<CircularProgress size={12} color="inherit" />}
+                label="Syncing live data..."
+                variant="outlined"
+                color="info"
+                sx={{ height: 22, fontSize: '0.72rem' }}
+              />
+            ) : props.isStale ? (
+              <Chip
+                size="small"
+                label="Older listing"
+                variant="outlined"
+                sx={{ height: 22, fontSize: '0.72rem', opacity: 0.7 }}
+              />
+            ) : null}
+          </Box>
+
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              component="a"
+              href={upworkApi.viewUrl(job.ciphertext)}
+              target="_blank"
+              rel="noopener noreferrer"
+              endIcon={<OpenInNew fontSize="small" />}
+              sx={{ textTransform: 'none' }}
+            >
+              View Job
+            </Button>
+
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              onClick={() => props.onApply(job)}
+              startIcon={<Bolt fontSize="small" />}
+              endIcon={<OpenInNew fontSize="small" />}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            >
+              Apply Now
+            </Button>
+          </Stack>
+        </Box>
+
+        {/* Job Title */}
+        <Typography
+          variant="h5"
+          component="h1"
+          sx={{
+            fontWeight: 700,
+            mb: 2,
+            lineHeight: 1.3,
+          }}
+          dangerouslySetInnerHTML={{ __html: job.title }}
+        />
+
+        {/* Key Metric Badges */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
+          <Chip
+            label={formatBudget(job)}
+            color="primary"
+            variant={isDarkMode ? 'outlined' : 'filled'}
+            sx={{ fontWeight: 600 }}
+          />
+
+          {job.proposalsTier && (
+            <Chip
+              size="medium"
+              label={`Proposals: ${job.proposalsTier}`}
+              color={getProposalsTierColor(job.proposalsTier)}
+              variant="outlined"
+              sx={{ fontWeight: 500 }}
+            />
+          )}
+
+          {job.tierText && (
+            <Chip
+              size="medium"
+              label={`Experience: ${capitalizeFirst(job.tierText)}`}
+              variant="outlined"
+            />
+          )}
+
+          {job.durationLabel && (
+            <Chip
+              size="medium"
+              label={`Duration: ${capitalizeFirst(job.durationLabel)}`}
+              variant="outlined"
+            />
+          )}
+
+          {job.engagement && job.engagement !== 'not_sure' && (
+            <Chip
+              size="medium"
+              label={`Engagement: ${job.engagement}`}
+              variant="outlined"
+            />
+          )}
+
+          {/* Dynamic Connects Badge */}
+          {fetchedConnects !== null && fetchedConnects > 0 ? (
+            <Tooltip
+              title={`At $0.15 USD per Connect, this proposal costs ~$${(fetchedConnects * 0.15).toFixed(2)} USD`}
+            >
+              <Chip
+                size="medium"
+                label={`${fetchedConnects} Connects (~$${(fetchedConnects * 0.15).toFixed(2)})`}
+                variant="outlined"
+                color="primary"
+              />
+            </Tooltip>
+          ) : isLoadingConnects ? (
+            <Chip
+              size="medium"
+              label="Checking connects..."
+              variant="outlined"
+              sx={{ opacity: 0.6 }}
+            />
+          ) : null}
+        </Box>
+
+        {/* Previous Client Banner */}
+        {job.clientRelation && (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.5,
+              mb: 3,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              borderColor: 'info.main',
+              backgroundColor: isDarkMode
+                ? 'rgba(2, 144, 209, 0.1)'
+                : 'rgba(2, 144, 209, 0.05)',
+            }}
+          >
+            <Handshake color="info" fontSize="large" />
             <Box>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                Previous Client
+              </Typography>
               <Typography variant="caption" color="textSecondary">
-                Spend & Location
+                You worked with this client previously.
               </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
-                {job.client.totalSpent
-                  ? `${Intl.NumberFormat('en-US', {
-                      currency: 'USD',
-                      style: 'currency',
-                      maximumFractionDigits: 0,
-                    }).format(job.client.totalSpent)} spent`
-                  : '$0 spent'}
-              </Typography>
+            </Box>
+          </Paper>
+        )}
 
-              {job.client.location?.country && (
-                <Typography
-                  variant="caption"
-                  color="textSecondary"
+        {/* Client Intelligence Dossier */}
+        {job.client && (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2.5,
+              mb: 3,
+              borderRadius: 2,
+              backgroundColor: isDarkMode ? '#161c24' : '#fafafa',
+            }}
+          >
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                color: 'text.secondary',
+                mb: 2,
+              }}
+            >
+              About the Client
+            </Typography>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: '1fr 1fr',
+                  md: '1fr 1fr 1fr',
+                },
+                gap: 2,
+              }}
+            >
+              {/* Payment & Rating */}
+              <Box>
+                <Typography variant="caption" color="textSecondary">
+                  Payment & Rating
+                </Typography>
+                <Box
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -396,89 +394,158 @@ const JobDetailPane = (props: Props) => {
                     mt: 0.5,
                   }}
                 >
-                  <LocationOn color="error" sx={{ fontSize: 16 }} />
-                  {job.client.location.country}
+                  {job.client.paymentVerificationStatus === 1 ? (
+                    <>
+                      <Verified color="info" fontSize="small" />
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        Payment verified
+                      </Typography>
+                    </>
+                  ) : (
+                    <>
+                      <CreditCardOff color="action" fontSize="small" />
+                      <Typography variant="body2" color="textSecondary">
+                        Payment unverified
+                      </Typography>
+                    </>
+                  )}
+                </Box>
+
+                {job.client.totalFeedback > 0 && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.75,
+                      mt: 0.5,
+                    }}
+                  >
+                    <Rating
+                      readOnly
+                      precision={0.1}
+                      size="small"
+                      value={job.client.totalFeedback}
+                    />
+                    <Typography variant="caption" color="textSecondary">
+                      {job.client.totalFeedback.toFixed(1)}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+
+              {/* Total Spend & Location */}
+              <Box>
+                <Typography variant="caption" color="textSecondary">
+                  Spend & Location
                 </Typography>
-              )}
-            </Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
+                  {job.client.totalSpent
+                    ? `${Intl.NumberFormat('en-US', {
+                        currency: 'USD',
+                        style: 'currency',
+                        maximumFractionDigits: 0,
+                      }).format(job.client.totalSpent)} spent`
+                    : '$0 spent'}
+                </Typography>
 
-            {/* Hiring Track Record */}
-            <Box>
-              <Typography variant="caption" color="textSecondary">
-                Hiring History
-              </Typography>
-              {clientStats && (
-                <>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
-                    {clientStats.hireRate}% hire rate
+                {job.client.location?.country && (
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mt: 0.5,
+                    }}
+                  >
+                    <LocationOn color="error" sx={{ fontSize: 16 }} />
+                    {job.client.location.country}
                   </Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {clientStats.openJobs} open job
-                    {clientStats.openJobs === 1 ? '' : 's'} •{' '}
-                    {clientStats.totalPostedJobs} posted
-                  </Typography>
-                </>
-              )}
+                )}
+              </Box>
+
+              {/* Hiring Track Record */}
+              <Box>
+                <Typography variant="caption" color="textSecondary">
+                  Hiring History
+                </Typography>
+                {clientStats && (
+                  <>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontWeight: 600, mt: 0.5 }}
+                    >
+                      {clientStats.hireRate}% hire rate
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      {clientStats.openJobs} open job
+                      {clientStats.openJobs === 1 ? '' : 's'} •{' '}
+                      {clientStats.totalPostedJobs} posted
+                    </Typography>
+                  </>
+                )}
+              </Box>
             </Box>
-          </Box>
-        </Paper>
-      )}
+          </Paper>
+        )}
 
-      {/* Job Description */}
-      <Typography
-        variant="subtitle2"
-        sx={{
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-          color: 'text.secondary',
-          mb: 1.5,
-        }}
-      >
-        Description
-      </Typography>
+        {/* Job Description */}
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+            color: 'text.secondary',
+            mb: 1.5,
+          }}
+        >
+          Description
+        </Typography>
 
-      <Typography
-        variant="body1"
-        sx={{
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          lineHeight: 1.7,
-          fontSize: '0.95rem',
-          mb: 3,
-        }}
-        dangerouslySetInnerHTML={{ __html: job.description }}
-      />
+        <Typography
+          variant="body1"
+          sx={{
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            lineHeight: 1.7,
+            fontSize: '0.95rem',
+            mb: 3,
+          }}
+          dangerouslySetInnerHTML={{ __html: job.description }}
+        />
 
-      {/* Skills & Expertise */}
-      {job.attrs && job.attrs.length > 0 && (
-        <>
-          <Divider sx={{ my: 3 }} />
-          <Typography
-            variant="subtitle2"
-            sx={{
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              color: 'text.secondary',
-              mb: 1.5,
-            }}
-          >
-            Skills & Expertise
-          </Typography>
+        {/* Skills & Expertise */}
+        {job.attrs && job.attrs.length > 0 && (
+          <>
+            <Divider sx={{ my: 3 }} />
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                color: 'text.secondary',
+                mb: 1.5,
+              }}
+            >
+              Skills & Expertise
+            </Typography>
 
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-            {job.attrs.map((attr) => (
-              <Chip
-                key={attr.prettyName}
-                label={attr.prettyName}
-                size="small"
-                variant="outlined"
-              />
-            ))}
-          </Box>
-        </>
-      )}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+              {job.attrs.map((attr) => (
+                <Chip
+                  key={attr.prettyName}
+                  label={attr.prettyName}
+                  size="small"
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          </>
+        )}
+      </Box>
     </Box>
   )
 }

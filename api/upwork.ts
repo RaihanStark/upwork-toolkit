@@ -61,6 +61,8 @@ export type Job = {
    */
   ciphertext: string
   connectPrice?: number
+  isStale?: boolean
+  lastSyncedAt?: number
   duration: string | null
   renewedOn: Date | null
   createdOn: Date | string
@@ -422,8 +424,33 @@ const parseConnectPrice = (text: string): number | null => {
   return null
 }
 
-const fetchJobConnects = async (ciphertext: string): Promise<number | null> => {
-  if (!ciphertext) return null
+export type JobLiveUpdates = {
+  connects: number | null
+  proposalsTier: string | null
+}
+
+const parseProposalsTier = (text: string): string | null => {
+  if (!text || typeof text !== 'string') return null
+  const jsonMatch = text.match(/"proposalsTier"\s*:\s*"([^"]+)"/i)
+  if (jsonMatch && jsonMatch[1]) {
+    return jsonMatch[1].trim()
+  }
+  const htmlMatch = text.match(
+    /proposals(?:\s+tier)?:\s*(?:<[^>]+>)*\s*([0-9+]+(?:\s+to\s+[0-9+]+)?|less than 5)/i
+  )
+  if (htmlMatch && htmlMatch[1]) {
+    return htmlMatch[1].trim()
+  }
+  return null
+}
+
+const fetchJobLiveUpdates = async (
+  ciphertext: string
+): Promise<JobLiveUpdates> => {
+  if (!ciphertext) return { connects: null, proposalsTier: null }
+
+  let connects: number | null = null
+  let proposalsTier: string | null = null
 
   // Step 1: Request the job posting page
   try {
@@ -437,37 +464,50 @@ const fetchJobConnects = async (ciphertext: string): Promise<number | null> => {
         typeof response.data === 'string'
           ? response.data
           : JSON.stringify(response.data)
-      const connects = parseConnectPrice(dataStr)
-      if (connects) return connects
+      connects = parseConnectPrice(dataStr)
+      proposalsTier = parseProposalsTier(dataStr)
     }
   } catch (error) {
-    logger.error(['fetchJobConnects', ciphertext, String(error)])
+    logger.error(['fetchJobLiveUpdates', ciphertext, String(error)])
   }
 
-  // Step 2: Fallback to proposal page if needed
-  try {
-    const propResponse = await api.get(`nx/proposals/job/${ciphertext}/apply`, {
-      headers: pageHeaders,
-      validateStatus: (status) => status < 400,
-    })
+  // Step 2: Fallback to proposal page if connects wasn't found
+  if (connects === null) {
+    try {
+      const propResponse = await api.get(
+        `nx/proposals/job/${ciphertext}/apply`,
+        {
+          headers: pageHeaders,
+          validateStatus: (status) => status < 400,
+        }
+      )
 
-    if (propResponse.data) {
-      const dataStr =
-        typeof propResponse.data === 'string'
-          ? propResponse.data
-          : JSON.stringify(propResponse.data)
-      const connects = parseConnectPrice(dataStr)
-      if (connects) return connects
+      if (propResponse.data) {
+        const dataStr =
+          typeof propResponse.data === 'string'
+            ? propResponse.data
+            : JSON.stringify(propResponse.data)
+        connects = parseConnectPrice(dataStr)
+        if (!proposalsTier) {
+          proposalsTier = parseProposalsTier(dataStr)
+        }
+      }
+    } catch (error) {
+      logger.error(['fetchJobLiveUpdates:fallback', ciphertext, String(error)])
     }
-  } catch (error) {
-    logger.error(['fetchJobConnects:fallback', ciphertext, String(error)])
   }
 
-  return null
+  return { connects, proposalsTier }
+}
+
+const fetchJobConnects = async (ciphertext: string): Promise<number | null> => {
+  const result = await fetchJobLiveUpdates(ciphertext)
+  return result.connects
 }
 
 export default {
   fetchJobConnects,
+  fetchJobLiveUpdates,
   getClientStats,
   getJobs,
   getJobsToken,

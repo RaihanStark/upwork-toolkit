@@ -12,6 +12,7 @@ export default defineConfig({
       'idle',
       'alarms',
       'storage',
+      'unlimitedStorage',
       'cookies',
       'offscreen',
       'notifications',

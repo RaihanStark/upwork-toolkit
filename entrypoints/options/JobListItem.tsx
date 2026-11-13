@@ -1,4 +1,11 @@
-import { Box, Chip, Paper, Typography, useTheme } from '@mui/material'
+import {
+  Box,
+  Chip,
+  CircularProgress,
+  Paper,
+  Typography,
+  useTheme,
+} from '@mui/material'
 import moment from 'moment'
 import { Job, getClientStats } from '@/api/upwork'
 import Handshake from '@/icons/Handshake'
@@ -8,6 +15,8 @@ type Props = {
   job: Job
   isSelected: boolean
   isUnseen: boolean
+  isStale?: boolean
+  isLoading?: boolean
   onClick: () => void
 }
 
@@ -42,9 +51,11 @@ const getProposalsTierColor = (
 
 const JobListItem = (props: Props) => {
   const theme = useTheme()
-  const { job, isSelected, isUnseen } = props
+  const { job, isSelected, isUnseen, isStale, isLoading } = props
   const clientStats = getClientStats(job.client)
   const isDarkMode = theme.palette.mode === 'dark'
+
+  const isDimmed = isStale && !isSelected && !isLoading
 
   const clientSnippet = (() => {
     if (!job.client) return null
@@ -82,13 +93,19 @@ const JobListItem = (props: Props) => {
         transition: 'all 0.15s ease',
         position: 'relative',
         borderRadius: 2,
+        opacity: isDimmed ? 0.6 : 1,
+        filter: isDimmed ? 'grayscale(35%)' : 'none',
         borderColor: isSelected
           ? isDarkMode
             ? '#fff'
             : '#000'
-          : isDarkMode
-            ? 'rgba(255, 255, 255, 0.12)'
-            : 'rgba(0, 0, 0, 0.08)',
+          : isDimmed
+            ? isDarkMode
+              ? 'rgba(255, 255, 255, 0.06)'
+              : 'rgba(0, 0, 0, 0.05)'
+            : isDarkMode
+              ? 'rgba(255, 255, 255, 0.12)'
+              : 'rgba(0, 0, 0, 0.08)',
         borderLeftWidth: isSelected ? 4 : isUnseen ? 4 : 1,
         borderLeftColor: isSelected
           ? isDarkMode
@@ -107,8 +124,14 @@ const JobListItem = (props: Props) => {
             ? isDarkMode
               ? 'rgba(252, 119, 3, 0.08)'
               : 'rgba(255, 255, 198, 0.5)'
-            : 'background.paper',
+            : isDimmed
+              ? isDarkMode
+                ? 'rgba(255, 255, 255, 0.015)'
+                : 'rgba(0, 0, 0, 0.015)'
+              : 'background.paper',
         '&:hover': {
+          opacity: 1,
+          filter: 'none',
           borderColor: isDarkMode ? '#fff' : '#000',
           transform: 'translateY(-1px)',
         },
@@ -134,15 +157,53 @@ const JobListItem = (props: Props) => {
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
+            color: isDimmed ? 'text.secondary' : 'text.primary',
           }}
           dangerouslySetInnerHTML={{ __html: job.title }}
         />
 
-        {job.clientRelation && (
-          <Box sx={{ flexShrink: 0 }}>
-            <Handshake color="info" fontSize="small" />
-          </Box>
-        )}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            flexShrink: 0,
+          }}
+        >
+          {isLoading && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <CircularProgress size={13} thickness={5} color="primary" />
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize: '0.675rem',
+                  color: 'primary.main',
+                  fontWeight: 600,
+                }}
+              >
+                Syncing
+              </Typography>
+            </Box>
+          )}
+
+          {!isLoading && isStale && !isSelected && (
+            <Chip
+              size="small"
+              label="Outdated"
+              variant="outlined"
+              sx={{
+                fontSize: '0.65rem',
+                height: 18,
+                color: 'text.secondary',
+                borderColor: isDarkMode
+                  ? 'rgba(255, 255, 255, 0.15)'
+                  : 'rgba(0, 0, 0, 0.15)',
+              }}
+            />
+          )}
+
+          {job.clientRelation && <Handshake color="info" fontSize="small" />}
+        </Box>
       </Box>
 
       {/* Budget & Time Meta */}

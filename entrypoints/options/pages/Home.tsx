@@ -34,6 +34,7 @@ const Home = () => {
   const [debugError, setDebugError] = useState<any>([])
   const [unseenIds, setUnseenIds] = useState<string[]>([])
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
+  const [syncingJobId, setSyncingJobId] = useState<string | null>(null)
 
   const jobsHash = Array.isArray(storage.jobs)
     ? storage.jobs
@@ -112,11 +113,35 @@ const Home = () => {
     )
   }
 
-  const handleConnectPriceFetched = (ciphertext: string, connects: number) => {
+  const JOB_STALE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+  const isJobStale = (job: Job, index: number) => {
+    if (index < 10) return false
+    if (!job.lastSyncedAt) return true
+    return Date.now() - job.lastSyncedAt > JOB_STALE_TTL_MS
+  }
+
+  const handleJobLiveUpdated = (
+    ciphertext: string,
+    updates: { connects?: number; proposalsTier?: string }
+  ) => {
+    setSyncingJobId(null)
+    const now = Date.now()
     storage.setJobs((jobs) =>
-      jobs.map((j) =>
-        j.ciphertext === ciphertext ? { ...j, connectPrice: connects } : j
-      )
+      jobs.map((j) => {
+        if (j.ciphertext !== ciphertext) return j
+        return {
+          ...j,
+          isStale: false,
+          lastSyncedAt: now,
+          ...(updates.connects !== undefined
+            ? { connectPrice: updates.connects }
+            : {}),
+          ...(updates.proposalsTier !== undefined
+            ? { proposalsTier: updates.proposalsTier }
+            : {}),
+        }
+      })
     )
   }
 
@@ -388,15 +413,20 @@ const Home = () => {
                   },
                 }}
               >
-                {jobs.map((job) => (
-                  <JobListItem
-                    key={job.ciphertext}
-                    job={job}
-                    isSelected={selectedJob?.ciphertext === job.ciphertext}
-                    isUnseen={unseenIds.includes(job.ciphertext)}
-                    onClick={() => handleSelectJob(job)}
-                  />
-                ))}
+                {jobs.map((job, index) => {
+                  const stale = isJobStale(job, index)
+                  return (
+                    <JobListItem
+                      key={job.ciphertext}
+                      job={job}
+                      isSelected={selectedJob?.ciphertext === job.ciphertext}
+                      isUnseen={unseenIds.includes(job.ciphertext)}
+                      isStale={stale}
+                      isLoading={syncingJobId === job.ciphertext}
+                      onClick={() => handleSelectJob(job)}
+                    />
+                  )
+                })}
               </Box>
 
               {/* Right Column (Job & Client Dossier Pane) */}
@@ -422,8 +452,17 @@ const Home = () => {
                 {selectedJob ? (
                   <JobDetailPane
                     job={selectedJob}
+                    isStale={isJobStale(
+                      selectedJob,
+                      jobs.findIndex(
+                        (j) => j.ciphertext === selectedJob.ciphertext
+                      )
+                    )}
                     onApply={handleApply}
-                    onConnectPriceFetched={handleConnectPriceFetched}
+                    onSyncStatusChange={(isSyncing) => {
+                      setSyncingJobId(isSyncing ? selectedJob.ciphertext : null)
+                    }}
+                    onJobLiveUpdated={handleJobLiveUpdated}
                   />
                 ) : (
                   <Box sx={{ p: 6, textAlign: 'center' }}>
@@ -443,22 +482,36 @@ const Home = () => {
                 <Paper variant="outlined" sx={{ borderRadius: 2 }}>
                   <JobDetailPane
                     job={selectedJob}
+                    isStale={isJobStale(
+                      selectedJob,
+                      jobs.findIndex(
+                        (j) => j.ciphertext === selectedJob.ciphertext
+                      )
+                    )}
                     onApply={handleApply}
                     onBack={() => setSelectedJobId(null)}
-                    onConnectPriceFetched={handleConnectPriceFetched}
+                    onSyncStatusChange={(isSyncing) => {
+                      setSyncingJobId(isSyncing ? selectedJob.ciphertext : null)
+                    }}
+                    onJobLiveUpdated={handleJobLiveUpdated}
                   />
                 </Paper>
               ) : (
                 <Box>
-                  {jobs.map((job) => (
-                    <JobListItem
-                      key={job.ciphertext}
-                      job={job}
-                      isSelected={false}
-                      isUnseen={unseenIds.includes(job.ciphertext)}
-                      onClick={() => handleSelectJob(job)}
-                    />
-                  ))}
+                  {jobs.map((job, index) => {
+                    const stale = isJobStale(job, index)
+                    return (
+                      <JobListItem
+                        key={job.ciphertext}
+                        job={job}
+                        isSelected={false}
+                        isUnseen={unseenIds.includes(job.ciphertext)}
+                        isStale={stale}
+                        isLoading={syncingJobId === job.ciphertext}
+                        onClick={() => handleSelectJob(job)}
+                      />
+                    )
+                  })}
                 </Box>
               )}
             </Box>

@@ -98,7 +98,7 @@ export const myFeedQuery = `
 
 export const bestMatchesQuery = `
   query bestMatches {
-    bestMatchJobsFeed(limit: 30) {
+    bestMatchJobsFeed(limit: 10) {
       results {
         uid:id
         title
