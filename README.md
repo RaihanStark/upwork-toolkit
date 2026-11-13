@@ -8,8 +8,20 @@ A Chrome extension that monitors your Upwork job feed in real time and alerts yo
 
 ---
 
+## Dashboard Preview
+
+![Upwork Toolkit Dashboard](./screenshot.png)
+
+---
+
 ## Features
 
+- **Split-Pane Triage Dashboard** — Desktop side-by-side view with a quick-scan job triage column on the left and full job & client intelligence dossier on the right.
+- **Client Intelligence** — Instantly review client verification status, historical hire rate, total spend, rating, and open jobs before applying.
+- **Dynamic Connects & Pricing Estimates** — Automatically displays proposal Connect requirements and estimates cost in USD at Upwork's rate ($0.15/connect, e.g. `12 Connects (~$1.80)`).
+- **Smart Merging & Extended History** — Background polling seamlessly merges new listings with existing ones up to 250 jobs without losing user read/unread state.
+- **Live On-Demand Sync & 5-Minute Stale TTL** — Older listings outside the active polling batch show a dimmed indicator and automatically refresh connects and proposal tiers on click, cached for 5 minutes.
+- **Mark All as Read** — Single-click action to clear unread badges from the dashboard.
 - **Real-time Job Monitoring** — Tracks _My Feed / Saved Searches_, _Best Matches_, and _Most Recent_ feeds.
 - **Instant Notifications** — Desktop notifications with sound alerts, volume control, and job deduplication.
 - **Mobile Alerts** — Forward new job notifications directly to your phone via Telegram, ntfy, or custom webhooks.
