@@ -48,7 +48,7 @@ export type GlobalState = {
 const getDefaultState = (): GlobalState => ({
   enabled: true,
   darkMode: 'system',
-  compactList: true,
+  compactList: false,
   readAlerts: [],
   readAlertIds: [],
   openProposalPage: true,

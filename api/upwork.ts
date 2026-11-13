@@ -60,6 +60,7 @@ export type Job = {
    * Unique identifier
    */
   ciphertext: string
+  connectPrice?: number
   duration: string | null
   renewedOn: Date | null
   createdOn: Date | string
@@ -382,7 +383,91 @@ const shouldIgnoreError = (error: any) =>
   error.response &&
   [400, 409, 499].includes(error.response.status)
 
+const parseConnectPrice = (text: string): number | null => {
+  if (!text || typeof text !== 'string') return null
+
+  // 1. First priority: Exact proposal requirement text in HTML
+  // E.g.: "Send a proposal for: 10 Connects", "Required Connects to submit a proposal: 10", "Required Connects: 10"
+  const htmlPatterns = [
+    /(?:send|submit)\s+a\s+proposal\s+for:?\s*(?:<[^>]+>)*\s*(\d+)\s*(?:<[^>]+>)*\s*connects/i,
+    /required\s+connects(?:\s+to\s+submit\s+a\s+proposal)?\s*:\s*(?:<[^>]+>)*\s*(\d+)/i,
+    /(\d+)\s*(?:<[^>]+>)*\s*connects\s*(?:<[^>]+>)*\s*(?:required|to\s+submit\s+a\s+proposal)/i,
+  ]
+
+  for (const regex of htmlPatterns) {
+    const match = text.match(regex)
+    if (match && match[1]) {
+      const val = parseInt(match[1], 10)
+      // Upwork proposal requirements are between 1 and 50 (reject wallet balances like 214)
+      if (val > 0 && val <= 50) return val
+    }
+  }
+
+  // 2. Second priority: JSON properties strictly representing the job's required connects
+  // NOTE: Never match connectsCount or availableConnects which represent user wallet balance!
+  const jsonKeyMatches = [
+    /"requiredConnects"\s*:\s*(\d+)/i,
+    /"connectPrice"\s*:\s*(\d+)/i,
+    /"connectsRequired"\s*:\s*(\d+)/i,
+  ]
+
+  for (const regex of jsonKeyMatches) {
+    const match = text.match(regex)
+    if (match && match[1]) {
+      const val = parseInt(match[1], 10)
+      if (val > 0 && val <= 50) return val
+    }
+  }
+
+  return null
+}
+
+const fetchJobConnects = async (ciphertext: string): Promise<number | null> => {
+  if (!ciphertext) return null
+
+  // Step 1: Request the job posting page
+  try {
+    const response = await api.get(`jobs/${ciphertext}`, {
+      headers: pageHeaders,
+      validateStatus: (status) => status < 400,
+    })
+
+    if (response.data) {
+      const dataStr =
+        typeof response.data === 'string'
+          ? response.data
+          : JSON.stringify(response.data)
+      const connects = parseConnectPrice(dataStr)
+      if (connects) return connects
+    }
+  } catch (error) {
+    logger.error(['fetchJobConnects', ciphertext, String(error)])
+  }
+
+  // Step 2: Fallback to proposal page if needed
+  try {
+    const propResponse = await api.get(`nx/proposals/job/${ciphertext}/apply`, {
+      headers: pageHeaders,
+      validateStatus: (status) => status < 400,
+    })
+
+    if (propResponse.data) {
+      const dataStr =
+        typeof propResponse.data === 'string'
+          ? propResponse.data
+          : JSON.stringify(propResponse.data)
+      const connects = parseConnectPrice(dataStr)
+      if (connects) return connects
+    }
+  } catch (error) {
+    logger.error(['fetchJobConnects:fallback', ciphertext, String(error)])
+  }
+
+  return null
+}
+
 export default {
+  fetchJobConnects,
   getClientStats,
   getJobs,
   getJobsToken,

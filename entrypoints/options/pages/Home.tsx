@@ -1,6 +1,7 @@
 import { browser } from '#imports'
 import upworkApi, { Job } from '@/api/upwork'
 import Storage, { StorageInterface } from '@/contexts/storage'
+import useMediaQuery from '@/hooks/useMediaQuery'
 import GirlReading from '@/icons/GirlReading'
 import alerts, { Alert } from '@/utils/alerts'
 import colors from '@/utils/colors'
@@ -11,18 +12,14 @@ import {
   AlertTitle,
   Box,
   Button,
-  FormControlLabel,
-  Link,
   Alert as MuiAlert,
-  Portal,
-  Switch,
+  Paper,
   Typography,
 } from '@mui/material'
 import { useSnackbar } from 'notistack'
-import { useContext, useEffect, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
-import JobList from '../JobList'
-import { LayoutContext } from './Layout'
+import { useContext, useEffect, useMemo, useState } from 'react'
+import JobDetailPane from '../JobDetailPane'
+import JobListItem from '../JobListItem'
 import { eventEmitter, Event } from '@/utils/events'
 
 const alertInterval = extension.debugEnabled
@@ -32,10 +29,11 @@ const alertInterval = extension.debugEnabled
 const Home = () => {
   const { enqueueSnackbar } = useSnackbar()
   const storage = useContext<StorageInterface>(Storage)
-  const { headerContainer } = useOutletContext<LayoutContext>()
+  const { isDesktop } = useMediaQuery()
 
   const [debugError, setDebugError] = useState<any>([])
   const [unseenIds, setUnseenIds] = useState<string[]>([])
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
 
   const jobsHash = Array.isArray(storage.jobs)
     ? storage.jobs
@@ -83,7 +81,7 @@ const Home = () => {
     })
 
   const markJobAsRead = async (ciphertext: string) => {
-    setUnseenIds((unseenIds) => unseenIds.filter((id) => id !== ciphertext))
+    setUnseenIds((ids) => ids.filter((id) => id !== ciphertext))
     await storage.setJobs((jobs) =>
       jobs.map((job) =>
         job.ciphertext === ciphertext ? { ...job, __isSeen: true } : job
@@ -91,7 +89,7 @@ const Home = () => {
     )
   }
 
-  const onJobClick = (job: Job) => {
+  const handleApply = (job: Job) => {
     storage.globalState.openProposalPage &&
       window.open(upworkApi.proposalUrl(job.ciphertext), '_blank')
 
@@ -100,8 +98,11 @@ const Home = () => {
     markJobAsRead(job.ciphertext)
   }
 
-  const onJobRead = (job: Job) => {
-    markJobAsRead(job.ciphertext)
+  const handleSelectJob = (job: Job) => {
+    setSelectedJobId(job.ciphertext)
+    if (unseenIds.includes(job.ciphertext)) {
+      markJobAsRead(job.ciphertext)
+    }
   }
 
   const markAllAsRead = async () => {
@@ -111,8 +112,27 @@ const Home = () => {
     )
   }
 
+  const handleConnectPriceFetched = (ciphertext: string, connects: number) => {
+    storage.setJobs((jobs) =>
+      jobs.map((j) =>
+        j.ciphertext === ciphertext ? { ...j, connectPrice: connects } : j
+      )
+    )
+  }
+
   const hasUnreadJobs =
     unseenIds.length > 0 || storage.jobs.some((job) => !job.__isSeen)
+
+  const jobs = Array.isArray(storage.jobs) ? storage.jobs : []
+
+  // Current selected job (defaults to first job on desktop)
+  const selectedJob = useMemo(() => {
+    if (selectedJobId) {
+      const found = jobs.find((j) => j.ciphertext === selectedJobId)
+      if (found) return found
+    }
+    return isDesktop && jobs.length > 0 ? jobs[0] : null
+  }, [jobs, selectedJobId, isDesktop])
 
   const renderAlert = () => {
     if (!storage.globalState.enabled) {
@@ -141,64 +161,26 @@ const Home = () => {
     if (lastCycleError === ErrorType.FORBIDDEN && !captchaAttempted) {
       return (
         <MuiAlert severity="warning" sx={{ mb: 3 }}>
-          <AlertTitle>Upwork doesn't believe you are human</AlertTitle>
-
+          <AlertTitle>Bot detection</AlertTitle>
           <p>
-            No worries!
-            <br />
-            Just solve{' '}
-            <Link
-              target="_blank"
-              rel="noreferrer noopener"
-              href="https://www.upwork.com/nx/find-work"
-              onClick={() =>
-                storage.setState({ lastCaptchaAttemptAt: Date.now() })
-              }
-            >
-              a captcha
-            </Link>{' '}
-            to keep extension working.
+            Upwork blocked request with bot-detection challenge. Solve the
+            challenge on the Upwork website to continue receiving notifications.
           </p>
-        </MuiAlert>
-      )
-    }
 
-    if (lastCycleError === ErrorType.SERVER_ERROR) {
-      return (
-        <MuiAlert severity="warning" sx={{ mb: 3 }}>
-          <AlertTitle>Server Error</AlertTitle>
+          <Button
+            variant="contained"
+            onClick={() => {
+              storage.setState({
+                lastCaptchaAttemptAt: Date.now(),
+              })
 
-          <p>
-            Seems like Upwork API is down (received 500 response).
-            <br />
-            You don't need to do anything, just wait.
-          </p>
-        </MuiAlert>
-      )
-    }
-
-    if (lastCycleError === ErrorType.OTHER) {
-      return (
-        <MuiAlert severity="error" sx={{ mb: 3 }}>
-          <AlertTitle>Whoops, something went wrong!</AlertTitle>
-          <p>
-            Something went wrong during jobs fetching.
-            <br />
-            Don't worry, the bug has been reported and is being worked on.
-          </p>
-        </MuiAlert>
-      )
-    }
-
-    if (lastCycleError === ErrorType.NETWORK_ERROR) {
-      return (
-        <MuiAlert severity="warning" sx={{ mb: 3 }}>
-          <AlertTitle>Network Error</AlertTitle>
-          <p>
-            Seems like you have network issues.
-            <br />
-            Please check your internet connection.
-          </p>
+              browser.tabs.create({
+                url: 'https://www.upwork.com/nx/find-work',
+              })
+            }}
+          >
+            Solve Challenge
+          </Button>
         </MuiAlert>
       )
     }
@@ -206,42 +188,55 @@ const Home = () => {
     if (lastCycleError === ErrorType.UNAUTHENTICATED && !loginAttempted) {
       return (
         <MuiAlert severity="warning" sx={{ mb: 3 }}>
-          <AlertTitle>Authentication required</AlertTitle>
-
+          <AlertTitle>Log in to Upwork</AlertTitle>
           <p>
-            It seems like you are not authentincated on upwork.com website.
-            <br />
-            Please login and wait for extension to load jobs (~1 minute).
+            Extension will not be able to fetch jobs without being logged in.
           </p>
 
           <Button
-            size="small"
-            component="a"
-            target="_blank"
             variant="contained"
-            rel="noreferrer noopener"
-            href="https://www.upwork.com/ab/account-security/login"
-            onClick={() => storage.setState({ lastLoginAttemptAt: Date.now() })}
+            onClick={() => {
+              storage.setState({
+                lastLoginAttemptAt: Date.now(),
+              })
+
+              browser.tabs.create({
+                url: 'https://www.upwork.com/ab/account-security/login',
+              })
+            }}
           >
-            Login
+            Log in
           </Button>
         </MuiAlert>
       )
     }
 
-    if (!lastCycleError && unreadAlert) {
+    if (lastCycleError === ErrorType.UNAUTHENTICATED && loginAttempted) {
+      return (
+        <MuiAlert severity="warning" sx={{ mb: 3 }}>
+          <AlertTitle>Did you log in?</AlertTitle>
+          <p>
+            It might take some time for the extension to pick up on the session.
+            Try reloading the page.
+          </p>
+
+          <Button variant="contained" onClick={() => window.location.reload()}>
+            Reload Page
+          </Button>
+        </MuiAlert>
+      )
+    }
+
+    if (unreadAlert) {
       return (
         <MuiAlert
           sx={{ mb: 3 }}
-          variant={unreadAlert.variant}
-          severity={unreadAlert.severity}
           onClose={() => onAlertClose(unreadAlert)}
+          severity={unreadAlert.severity}
         >
-          <AlertTitle {...unreadAlert.titleProps}>
-            {unreadAlert.title}
-          </AlertTitle>
+          {unreadAlert.title && <AlertTitle>{unreadAlert.title}</AlertTitle>}
 
-          <Box sx={{ mt: 2 }}>
+          <Box>
             {unreadAlert.renderBody({
               onInteracted: () => onAlertClose(unreadAlert),
             })}
@@ -299,58 +294,6 @@ const Home = () => {
 
   return (
     <>
-      {headerContainer.current && storage.jobs.length > 0 && (
-        <Portal container={headerContainer.current}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 2,
-            }}
-          >
-            {hasUnreadJobs && (
-              <Button
-                size="small"
-                variant="outlined"
-                color="inherit"
-                onClick={markAllAsRead}
-                sx={{
-                  color: '#fff',
-                  borderColor: 'rgba(255, 255, 255, 0.4)',
-                  textTransform: 'none',
-                  fontSize: '0.8125rem',
-                  py: 0.25,
-                  px: 1.25,
-                  '&:hover': {
-                    borderColor: '#fff',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  },
-                }}
-              >
-                Mark all as read
-              </Button>
-            )}
-
-            <FormControlLabel
-              label="Compact list"
-              labelPlacement="start"
-              slotProps={{ typography: { sx: { fontWeight: 500 } } }}
-              control={
-                <Switch
-                  color="secondary"
-                  onChange={(event, compactList) =>
-                    storage.setState({ compactList })
-                  }
-                  defaultChecked={storage.globalState.compactList}
-                  sx={{ '& .MuiSwitch-track': { backgroundColor: '#fff' } }}
-                />
-              }
-            />
-          </Box>
-        </Portal>
-      )}
-
       {alert}
 
       {extension.debugEnabled && (
@@ -360,30 +303,168 @@ const Home = () => {
         </>
       )}
 
+      {/* Empty State */}
       {!lastCycleError &&
         !unreadAlert &&
         storage.jobs.length === 0 &&
         !alert && (
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
             <GirlReading sx={{ fontSize: '12rem' }} />
 
             <Typography variant="h6" component="h6">
               Sit back and relax
             </Typography>
 
-            <Typography sx={{ mt: 0.5 }}>
+            <Typography sx={{ mt: 0.5 }} color="textSecondary">
               Extension will notify you when new jobs appear
             </Typography>
           </Box>
         )}
 
-      <JobList
-        jobs={storage.jobs}
-        unseenIds={unseenIds}
-        onJobClick={onJobClick}
-        onJobRead={onJobRead}
-        detailed={!storage.globalState.compactList}
-      />
+      {/* Main Split-Pane View */}
+      {jobs.length > 0 && (
+        <Box>
+          {/* Status Header */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              mb: 1.5,
+              minHeight: 32,
+            }}
+          >
+            <Typography
+              variant="body2"
+              color="textSecondary"
+              sx={{ fontWeight: 500 }}
+            >
+              {jobs.length} job{jobs.length === 1 ? '' : 's'}
+              {unseenIds.length > 0 && ` • ${unseenIds.length} unread`}
+            </Typography>
+
+            {hasUnreadJobs && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                onClick={markAllAsRead}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.8125rem',
+                  py: 0.25,
+                  px: 1.25,
+                  borderRadius: 1.5,
+                }}
+              >
+                Mark all as read
+              </Button>
+            )}
+          </Box>
+
+          {/* Desktop Split-Pane Layout */}
+          {isDesktop && (
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 2.5,
+                alignItems: 'flex-start',
+              }}
+            >
+              {/* Left Column (Job Triage List) */}
+              <Box
+                sx={{
+                  width: { md: 380, lg: 420 },
+                  flexShrink: 0,
+                  maxHeight: 'calc(100vh - 165px)',
+                  overflowY: 'auto',
+                  pr: 0.5,
+                  '&::-webkit-scrollbar': {
+                    width: 6,
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: 'rgba(128, 128, 128, 0.2)',
+                    borderRadius: 3,
+                  },
+                }}
+              >
+                {jobs.map((job) => (
+                  <JobListItem
+                    key={job.ciphertext}
+                    job={job}
+                    isSelected={selectedJob?.ciphertext === job.ciphertext}
+                    isUnseen={unseenIds.includes(job.ciphertext)}
+                    onClick={() => handleSelectJob(job)}
+                  />
+                ))}
+              </Box>
+
+              {/* Right Column (Job & Client Dossier Pane) */}
+              <Paper
+                variant="outlined"
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  borderRadius: 2,
+                  maxHeight: 'calc(100vh - 165px)',
+                  overflowY: 'auto',
+                  position: 'sticky',
+                  top: 75,
+                  '&::-webkit-scrollbar': {
+                    width: 6,
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: 'rgba(128, 128, 128, 0.2)',
+                    borderRadius: 3,
+                  },
+                }}
+              >
+                {selectedJob ? (
+                  <JobDetailPane
+                    job={selectedJob}
+                    onApply={handleApply}
+                    onConnectPriceFetched={handleConnectPriceFetched}
+                  />
+                ) : (
+                  <Box sx={{ p: 6, textAlign: 'center' }}>
+                    <Typography color="textSecondary">
+                      Select a job from the list to view full details
+                    </Typography>
+                  </Box>
+                )}
+              </Paper>
+            </Box>
+          )}
+
+          {/* Mobile / Tablet View */}
+          {!isDesktop && (
+            <Box>
+              {selectedJobId && selectedJob ? (
+                <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+                  <JobDetailPane
+                    job={selectedJob}
+                    onApply={handleApply}
+                    onBack={() => setSelectedJobId(null)}
+                    onConnectPriceFetched={handleConnectPriceFetched}
+                  />
+                </Paper>
+              ) : (
+                <Box>
+                  {jobs.map((job) => (
+                    <JobListItem
+                      key={job.ciphertext}
+                      job={job}
+                      isSelected={false}
+                      isUnseen={unseenIds.includes(job.ciphertext)}
+                      onClick={() => handleSelectJob(job)}
+                    />
+                  ))}
+                </Box>
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
     </>
   )
 }

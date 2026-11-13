@@ -97,7 +97,7 @@ const Layout = () => {
         position="fixed"
         sx={{ background: '#000', color: '#fff' }}
       >
-        <Container maxWidth="lg">
+        <Container maxWidth="xl">
           <Toolbar disableGutters>
             <Button
               to="/"
@@ -132,7 +132,7 @@ const Layout = () => {
         </Container>
       </AppBar>
       <Toolbar />
-      <Container maxWidth="lg" sx={{ mt: 2, pb: 3 }}>
+      <Container maxWidth="xl" sx={{ mt: 2, pb: 3 }}>
         {!isDesktop && (
           <Tabs
             sx={{ mb: 2 }}
