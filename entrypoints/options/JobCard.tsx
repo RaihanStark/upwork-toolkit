@@ -14,7 +14,7 @@ import moment from 'moment'
 import Toggle from '@/components/Toggle'
 import { SxProps } from '@mui/system'
 import colors from '@/utils/colors'
-import upworkApi, { Job } from '@/api/upwork'
+import upworkApi, { Job, getClientStats } from '@/api/upwork'
 import Handshake from '@/icons/Handshake'
 import { Theme } from '@mui/material/styles'
 import { Verified, LocationOn, CreditCardOff } from '@mui/icons-material'
@@ -43,6 +43,7 @@ export type Props = {
 
 const JobCard = (props: Props) => {
   const theme = useTheme()
+  const clientStats = getClientStats(props.job.client)
 
   return (
     <Card
@@ -173,63 +174,72 @@ const JobCard = (props: Props) => {
           </Typography>
 
           {props.job.client && (
-            <Box
-              sx={{
-                mt: 2,
-                gap: '0.5rem',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <Typography
-                color="textSecondary"
+            <>
+              <Box
                 sx={{
+                  mt: 2,
                   gap: '0.5rem',
                   display: 'flex',
                   alignItems: 'center',
+                  flexWrap: 'wrap',
                 }}
               >
-                {props.job.client.paymentVerificationStatus === 1 ? (
-                  <>
-                    <Verified color="info" />
-                    <strong>Payment verified</strong>
-                  </>
-                ) : (
-                  <>
-                    <CreditCardOff />
-                    <strong>Payment unverified</strong>
-                  </>
-                )}
-              </Typography>
+                <Typography
+                  color="textSecondary"
+                  sx={{
+                    gap: '0.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {props.job.client.paymentVerificationStatus === 1 ? (
+                    <>
+                      <Verified color="info" />
+                      <strong>Payment verified</strong>
+                    </>
+                  ) : (
+                    <>
+                      <CreditCardOff />
+                      <strong>Payment unverified</strong>
+                    </>
+                  )}
+                </Typography>
 
-              <Rating
-                readOnly
-                precision={0.1}
-                value={props.job.client.totalFeedback}
-              />
+                <Rating
+                  readOnly
+                  precision={0.1}
+                  value={props.job.client.totalFeedback}
+                />
 
-              {props.job.client.totalSpent && (
-                <Typography>
-                  <strong>
-                    {Intl.NumberFormat('en-US', {
-                      currency: 'USD',
-                      style: 'currency',
-                      maximumFractionDigits: 0,
-                    }).format(props.job.client.totalSpent)}
-                  </strong>{' '}
-                  <Typography color="textSecondary" component="span">
-                    spent
+                {props.job.client.totalSpent && (
+                  <Typography>
+                    <strong>
+                      {Intl.NumberFormat('en-US', {
+                        currency: 'USD',
+                        style: 'currency',
+                        maximumFractionDigits: 0,
+                      }).format(props.job.client.totalSpent)}
+                    </strong>{' '}
+                    <Typography color="textSecondary" component="span">
+                      spent
+                    </Typography>
                   </Typography>
-                </Typography>
-              )}
+                )}
 
-              {props.job.client.location?.country && (
-                <Typography color="textSecondary" sx={{ display: 'flex' }}>
-                  <LocationOn color="error" />
-                  {props.job.client.location.country}
+                {props.job.client.location?.country && (
+                  <Typography color="textSecondary" sx={{ display: 'flex' }}>
+                    <LocationOn color="error" />
+                    {props.job.client.location.country}
+                  </Typography>
+                )}
+              </Box>
+
+              {clientStats && (
+                <Typography color="textSecondary" sx={{ mt: 0.5 }}>
+                  {clientStats.formatted}
                 </Typography>
               )}
-            </Box>
+            </>
           )}
         </CardContent>
       </CardActionArea>

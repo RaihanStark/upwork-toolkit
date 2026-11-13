@@ -43,6 +43,10 @@ export type Job = {
     paymentVerificationStatus: number | null
     totalFeedback: number
     totalSpent: number
+    totalHires?: number
+    totalPostedJobs?: number
+    openJobsCount?: number
+    openJobs?: number
 
     location?: {
       country: string | null
@@ -62,6 +66,39 @@ export type Job = {
 
   // internal attribute
   __isSeen: boolean
+}
+
+export type ClientStats = {
+  hireRate: number
+  openJobs: number
+  totalPostedJobs: number
+  totalHires: number
+  formatted: string
+}
+
+export const getClientStats = (client: Job['client']): ClientStats | null => {
+  if (!client) return null
+
+  const totalPosted =
+    client.totalPostedJobs ?? (client.totalHires ? client.totalHires : 0)
+  const totalHires = client.totalHires ?? 0
+  const hireRate =
+    totalPosted > 0
+      ? Math.min(Math.round((totalHires / totalPosted) * 100), 100)
+      : 0
+  const openJobs = client.openJobsCount ?? client.openJobs ?? 1
+
+  const openJobsText = `${openJobs} open job${openJobs === 1 ? '' : 's'}`
+  const postedText = `${totalPosted} job${totalPosted === 1 ? '' : 's'} posted`
+  const formatted = `${hireRate}% hire rate, ${openJobsText}, ${postedText}`
+
+  return {
+    hireRate,
+    openJobs,
+    totalPostedJobs: totalPosted,
+    totalHires,
+    formatted,
+  }
 }
 
 const api = axios.create({
@@ -346,6 +383,7 @@ const shouldIgnoreError = (error: any) =>
   [400, 409, 499].includes(error.response.status)
 
 export default {
+  getClientStats,
   getJobs,
   getJobsToken,
   feedOptions,

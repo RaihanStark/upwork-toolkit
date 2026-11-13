@@ -1,4 +1,4 @@
-import upworkApi, { Job } from '@/api/upwork'
+import upworkApi, { Job, ClientStats, getClientStats } from '@/api/upwork'
 import logger from '@/utils/logger'
 import mobileNotificationsStorage, {
   MobileNotificationsConfig,
@@ -41,6 +41,7 @@ export type NotificationJob = {
     country: string | null
     totalSpent: number | null
     paymentVerified: boolean
+    stats: ClientStats | null
   } | null
 }
 
@@ -146,6 +147,7 @@ const toView = (job: Job): NotificationJob => ({
         country: job.client.location?.country ?? null,
         totalSpent: job.client.totalSpent ?? null,
         paymentVerified: job.client.paymentVerificationStatus === 1,
+        stats: getClientStats(job.client),
       }
     : null,
 })
@@ -163,6 +165,7 @@ const clientLine = (view: NotificationJob): string | null => {
     view.client.country,
     view.client.totalSpent ? `💰 ${usd(view.client.totalSpent)} spent` : null,
     view.client.paymentVerified ? '✅ Payment verified' : '⚠️ Unverified',
+    view.client.stats?.formatted ?? null,
   ]
     .filter(Boolean)
     .join(' • ')
@@ -418,6 +421,8 @@ const SAMPLE_JOB: Job = {
     paymentVerificationStatus: 1,
     totalFeedback: 4.9,
     totalSpent: 32000,
+    totalHires: 14,
+    totalPostedJobs: 18,
     location: { country: 'United States' },
   },
   attrs: [
