@@ -14,9 +14,22 @@ import upworkApi from '@/api/upwork'
 import Toggle from '@/components/Toggle'
 import JobCard, { unreadStyles, Props as JobCardProps } from './JobCard'
 
-const Job = (props: JobCardProps & { detailed: boolean }) => {
+type Props = JobCardProps & {
+  detailed: boolean
+  onJobRead?: (job: JobCardProps['job']) => void
+}
+
+const Job = (props: Props) => {
   const theme = useTheme()
   const [opened, setOpened] = useState(false)
+
+  const handleToggle = () => {
+    const nextOpened = !opened
+    setOpened(nextOpened)
+    if (nextOpened && props.unseen) {
+      props.onJobRead?.(props.job)
+    }
+  }
 
   if (props.detailed) {
     return (
@@ -47,7 +60,7 @@ const Job = (props: JobCardProps & { detailed: boolean }) => {
       <ListItemText
         primary={
           <Box sx={{ gap: 1, display: 'flex', alignItems: 'flex-start' }}>
-            <Toggle opened={opened} onChange={() => setOpened(!opened)} />
+            <Toggle opened={opened} onChange={handleToggle} />
 
             {props.job.clientRelation && (
               <Tooltip arrow title="Previous client">

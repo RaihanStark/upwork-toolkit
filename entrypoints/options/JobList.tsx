@@ -8,6 +8,7 @@ type Props = {
   unseenIds: string[]
   jobs: UpworkJob[]
   onJobClick: (job: UpworkJob) => void
+  onJobRead?: (job: UpworkJob) => void
 }
 
 const JobList = (props: Props) =>
@@ -22,6 +23,7 @@ const JobList = (props: Props) =>
         key={job.ciphertext}
         detailed={props.detailed}
         onJobClick={props.onJobClick}
+        onJobRead={props.onJobRead}
         unseen={props.unseenIds.includes(job.ciphertext)}
       />
     ))

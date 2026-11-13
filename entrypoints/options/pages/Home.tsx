@@ -82,14 +82,37 @@ const Home = () => {
       ],
     })
 
+  const markJobAsRead = async (ciphertext: string) => {
+    setUnseenIds((unseenIds) => unseenIds.filter((id) => id !== ciphertext))
+    await storage.setJobs((jobs) =>
+      jobs.map((job) =>
+        job.ciphertext === ciphertext ? { ...job, __isSeen: true } : job
+      )
+    )
+  }
+
   const onJobClick = (job: Job) => {
     storage.globalState.openProposalPage &&
       window.open(upworkApi.proposalUrl(job.ciphertext), '_blank')
 
     window.open(upworkApi.viewUrl(job.ciphertext), '_blank')
 
-    setUnseenIds((unseenIds) => unseenIds.filter((id) => id !== job.ciphertext))
+    markJobAsRead(job.ciphertext)
   }
+
+  const onJobRead = (job: Job) => {
+    markJobAsRead(job.ciphertext)
+  }
+
+  const markAllAsRead = async () => {
+    setUnseenIds([])
+    await storage.setJobs((jobs) =>
+      jobs.map((job) => ({ ...job, __isSeen: true }))
+    )
+  }
+
+  const hasUnreadJobs =
+    unseenIds.length > 0 || storage.jobs.some((job) => !job.__isSeen)
 
   const renderAlert = () => {
     if (!storage.globalState.enabled) {
@@ -239,61 +262,76 @@ const Home = () => {
 
     if (!lastCycleError) {
       notifications.clearAll()
-      browser.action.setBadgeText({ text: '' })
-      return
     }
     // eslint-disable-next-line
   }, [])
 
-  useEffect(
-    () =>
-      setUnseenIds((previousIds) => [
-        ...previousIds,
-        ...storage.jobs
-          .filter(
-            (job) => !job.__isSeen && !previousIds.includes(job.ciphertext)
-          )
-          .map((job) => job.ciphertext),
-      ]),
+  useEffect(() => {
+    const unseenJobIds = storage.jobs
+      .filter((job) => !job.__isSeen)
+      .map((job) => job.ciphertext)
+
+    setUnseenIds((previousIds) => {
+      const validPrevious = previousIds.filter((id) =>
+        unseenJobIds.includes(id)
+      )
+      return Array.from(new Set([...validPrevious, ...unseenJobIds]))
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobsHash]
-  )
-
-  useEffect(
-    () => {
-      const id = setInterval(async () => {
-        const [currentTab, currentWindow] = await Promise.all([
-          browser.tabs.getCurrent(),
-          browser.windows.getCurrent(),
-        ])
-
-        currentTab?.active &&
-          currentWindow?.focused &&
-          storage.jobs.some((job) => !job.__isSeen) &&
-          (await storage.setJobs((jobs) =>
-            jobs.map((job) => ({ ...job, __isSeen: true }))
-          ))
-      }, 300)
-
-      return () => clearInterval(id)
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobsHash]
-  )
+  }, [jobsHash])
 
   useEffect(() => {
     eventEmitter.emit(Event.UNSEEN_IDS_UPDATED, unseenIds)
 
+    if (storage.globalState.enabled) {
+      browser.action.setBadgeText({
+        text: unseenIds.length > 0 ? String(unseenIds.length) : '',
+      })
+      if (unseenIds.length > 0) {
+        browser.action.setBadgeBackgroundColor({ color: colors.warning })
+      }
+    }
+
     return () => {
       eventEmitter.emit(Event.UNSEEN_IDS_UPDATED, [])
     }
-  }, [unseenIds])
+  }, [unseenIds, storage.globalState.enabled])
 
   return (
     <>
       {headerContainer.current && storage.jobs.length > 0 && (
         <Portal container={headerContainer.current}>
-          <Box sx={{ textAlign: 'right' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 2,
+            }}
+          >
+            {hasUnreadJobs && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                onClick={markAllAsRead}
+                sx={{
+                  color: '#fff',
+                  borderColor: 'rgba(255, 255, 255, 0.4)',
+                  textTransform: 'none',
+                  fontSize: '0.8125rem',
+                  py: 0.25,
+                  px: 1.25,
+                  '&:hover': {
+                    borderColor: '#fff',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  },
+                }}
+              >
+                Mark all as read
+              </Button>
+            )}
+
             <FormControlLabel
               label="Compact list"
               labelPlacement="start"
@@ -343,6 +381,7 @@ const Home = () => {
         jobs={storage.jobs}
         unseenIds={unseenIds}
         onJobClick={onJobClick}
+        onJobRead={onJobRead}
         detailed={!storage.globalState.compactList}
       />
     </>
