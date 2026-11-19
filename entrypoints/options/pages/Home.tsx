@@ -7,13 +7,21 @@ import alerts, { Alert } from '@/utils/alerts'
 import colors from '@/utils/colors'
 import { ErrorType } from '@/utils/errors'
 import extension from '@/utils/extension'
+import jobStorage from '@/utils/jobs'
 import notifications from '@/utils/notifications'
+import { DeleteOutlined } from '@mui/icons-material'
 import {
   AlertTitle,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Alert as MuiAlert,
   Paper,
+  Stack,
   Typography,
 } from '@mui/material'
 import { useSnackbar } from 'notistack'
@@ -35,6 +43,7 @@ const Home = () => {
   const [unseenIds, setUnseenIds] = useState<string[]>([])
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [syncingJobId, setSyncingJobId] = useState<string | null>(null)
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
 
   const jobsHash = Array.isArray(storage.jobs)
     ? storage.jobs
@@ -111,6 +120,24 @@ const Home = () => {
     await storage.setJobs((jobs) =>
       jobs.map((job) => ({ ...job, __isSeen: true }))
     )
+  }
+
+  const handleClearAllJobs = async () => {
+    setClearDialogOpen(false)
+    setSelectedJobId(null)
+    setUnseenIds([])
+    await jobStorage.clearAll()
+    await notifications.clearAll()
+    enqueueSnackbar('All jobs cleared', { variant: 'success' })
+  }
+
+  const handleRemoveJob = async (job: Job) => {
+    setUnseenIds((ids) => ids.filter((id) => id !== job.ciphertext))
+    if (selectedJobId === job.ciphertext) {
+      setSelectedJobId(null)
+    }
+    await jobStorage.removeJob(job.ciphertext)
+    enqueueSnackbar('Job removed', { variant: 'info' })
   }
 
   const JOB_STALE_TTL_MS = 5 * 60 * 1000 // 5 minutes
@@ -368,12 +395,31 @@ const Home = () => {
               {unseenIds.length > 0 && ` • ${unseenIds.length} unread`}
             </Typography>
 
-            {hasUnreadJobs && (
+            <Stack direction="row" spacing={1}>
+              {hasUnreadJobs && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="inherit"
+                  onClick={markAllAsRead}
+                  sx={{
+                    textTransform: 'none',
+                    fontSize: '0.8125rem',
+                    py: 0.25,
+                    px: 1.25,
+                    borderRadius: 1.5,
+                  }}
+                >
+                  Mark all as read
+                </Button>
+              )}
+
               <Button
                 size="small"
                 variant="outlined"
-                color="inherit"
-                onClick={markAllAsRead}
+                color="error"
+                startIcon={<DeleteOutlined fontSize="small" />}
+                onClick={() => setClearDialogOpen(true)}
                 sx={{
                   textTransform: 'none',
                   fontSize: '0.8125rem',
@@ -382,9 +428,9 @@ const Home = () => {
                   borderRadius: 1.5,
                 }}
               >
-                Mark all as read
+                Clear jobs
               </Button>
-            )}
+            </Stack>
           </Box>
 
           {/* Desktop Split-Pane Layout */}
@@ -459,6 +505,7 @@ const Home = () => {
                       )
                     )}
                     onApply={handleApply}
+                    onRemove={handleRemoveJob}
                     onSyncStatusChange={(isSyncing) => {
                       setSyncingJobId(isSyncing ? selectedJob.ciphertext : null)
                     }}
@@ -490,6 +537,7 @@ const Home = () => {
                     )}
                     onApply={handleApply}
                     onBack={() => setSelectedJobId(null)}
+                    onRemove={handleRemoveJob}
                     onSyncStatusChange={(isSyncing) => {
                       setSyncingJobId(isSyncing ? selectedJob.ciphertext : null)
                     }}
@@ -518,6 +566,39 @@ const Home = () => {
           )}
         </Box>
       )}
+
+      <Dialog
+        open={clearDialogOpen}
+        onClose={() => setClearDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Clear all jobs?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will remove all {jobs.length} job{jobs.length === 1 ? '' : 's'}{' '}
+            from your local database. Only new jobs fetched afterward will
+            appear.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setClearDialogOpen(false)}
+            color="inherit"
+            sx={{ textTransform: 'none' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleClearAllJobs}
+            color="error"
+            variant="contained"
+            sx={{ textTransform: 'none' }}
+          >
+            Clear jobs
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   )
 }

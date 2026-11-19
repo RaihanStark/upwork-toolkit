@@ -4,6 +4,7 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  IconButton,
   LinearProgress,
   Paper,
   Rating,
@@ -16,6 +17,7 @@ import {
   ArrowBack,
   Bolt,
   CreditCardOff,
+  DeleteOutlined,
   LocationOn,
   OpenInNew,
   Verified,
@@ -31,6 +33,7 @@ type Props = {
   isStale?: boolean
   onApply: (job: Job) => void
   onBack?: () => void
+  onRemove?: (job: Job) => void
   onSyncStatusChange?: (isSyncing: boolean) => void
   onJobLiveUpdated?: (
     ciphertext: string,
@@ -213,7 +216,24 @@ const JobDetailPane = (props: Props) => {
             ) : null}
           </Box>
 
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            {props.onRemove && (
+              <Tooltip title="Remove job">
+                <IconButton
+                  size="small"
+                  color="default"
+                  aria-label="Remove job"
+                  onClick={() => props.onRemove?.(job)}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': { color: 'error.main' },
+                  }}
+                >
+                  <DeleteOutlined fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+
             <Button
               size="small"
               variant="outlined"

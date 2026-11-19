@@ -58,7 +58,10 @@ const fetchJobs = async () => {
     return
   }
 
-  const oldBatch = await jobStorage.getAll()
+  const [oldBatch, clearedIds] = await Promise.all([
+    jobStorage.getAll(),
+    jobStorage.getClearedIds(),
+  ])
   let newBatch: Job[] = []
 
   try {
@@ -101,9 +104,14 @@ const fetchJobs = async () => {
     captureEvent({ message: 'oldBatch is not an array', extra: { oldBatch } })
   }
 
+  const clearedSet = new Set(clearedIds)
+  const filteredNewBatch = newBatch.filter(
+    (job) => !clearedSet.has(job.ciphertext)
+  )
+
   const existingBatch = Array.isArray(oldBatch) ? oldBatch : []
   const oldBatchIds = existingBatch.map((job) => job.ciphertext)
-  const newJobs = newBatch.filter(
+  const newJobs = filteredNewBatch.filter(
     (job) => !oldBatchIds.includes(job.ciphertext)
   )
 
@@ -112,7 +120,7 @@ const fetchJobs = async () => {
 
   // 1. Process all incoming fresh jobs from Upwork:
   // Update existing jobs with fresh Upwork metadata, while preserving local user state
-  const freshProcessed = newBatch.map((freshJob) => {
+  const freshProcessed = filteredNewBatch.map((freshJob) => {
     const existing = existingBatch.find(
       (oldJob) => oldJob.ciphertext === freshJob.ciphertext
     )
@@ -134,7 +142,7 @@ const fetchJobs = async () => {
   })
 
   // 2. Keep older jobs that were in oldBatch but outside the latest 10-job batch
-  const freshIds = new Set(newBatch.map((j) => j.ciphertext))
+  const freshIds = new Set(filteredNewBatch.map((j) => j.ciphertext))
   const olderJobs = existingBatch
     .filter((oldJob) => !freshIds.has(oldJob.ciphertext))
     .map((oldJob) => {
